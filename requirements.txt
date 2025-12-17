@@ -1,0 +1,5 @@
+streamlit
+anthropic
+python-dotenv
+supabase>=2.0.0
+websockets>=13.0
