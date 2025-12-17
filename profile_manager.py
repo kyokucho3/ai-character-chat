@@ -22,17 +22,45 @@ class ProfileManager:
     
     def _migrate_to_new_structure(self):
         """旧データ構造から新データ構造への移行"""
-        if "common_profile" not in self.profile:
-            # 旧データがあれば移行
-            old_data = {
-                "basic_info": self.profile.get("basic_info", {}),
-                "preferences": self.profile.get("preferences", {"likes": [], "dislikes": []})
-            }
+        # すでに新しい構造なら何もしない
+        if "common_profile" in self.profile and "character_memories" in self.profile:
+            return
+        
+        # 旧データ構造の場合は移行
+        try:
+            old_basic_info = self.profile.get("basic_info", {})
+            old_preferences = self.profile.get("preferences", {"likes": [], "dislikes": []})
             
+            # 新しい構造を作成
             self.profile = {
-                "common_profile": old_data,
+                "common_profile": {
+                    "basic_info": old_basic_info if isinstance(old_basic_info, dict) else {},
+                    "preferences": {
+                        "likes": old_preferences.get("likes", []) if isinstance(old_preferences, dict) else [],
+                        "dislikes": old_preferences.get("dislikes", []) if isinstance(old_preferences, dict) else []
+                    }
+                },
                 "character_memories": {},
                 "last_updated": self.profile.get("last_updated")
+            }
+            
+            # 保存
+            self.db.save_profile(self.profile)
+            print("データ構造を新しい形式に移行しました")
+            
+        except Exception as e:
+            # エラーが起きたら完全に新規作成
+            print(f"移行エラー、新規作成します: {e}")
+            self.profile = {
+                "common_profile": {
+                    "basic_info": {},
+                    "preferences": {
+                        "likes": [],
+                        "dislikes": []
+                    }
+                },
+                "character_memories": {},
+                "last_updated": None
             }
             self.db.save_profile(self.profile)
     
