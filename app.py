@@ -39,7 +39,6 @@ def check_authentication():
         with col1:
             if st.button("ログイン", use_container_width=True):
                 if password:
-                    # パスワードをハッシュ化してユーザーIDとして保存
                     st.session_state.user_id = hash_password(password)
                     st.session_state.authenticated = True
                     st.rerun()
@@ -56,10 +55,9 @@ check_authentication()
 
 # ==================== 初期化 ====================
 
-# Supabase接続
 @st.cache_resource
 def get_supabase_manager(user_id):
-    """Supabaseマネージャーを取得（キャッシュ）"""
+    """Supabaseマネージャーを取得"""
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY")
     
@@ -69,10 +67,9 @@ def get_supabase_manager(user_id):
     
     return SupabaseManager(supabase_url, supabase_key, user_id)
 
-# Anthropic クライアント
 @st.cache_resource
 def get_anthropic_client():
-    """Anthropicクライアントを取得（キャッシュ）"""
+    """Anthropicクライアントを取得"""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         st.error("Anthropic APIキーが設定されていません")
@@ -101,15 +98,15 @@ def get_recent_messages(messages, limit=20):
 def build_system_prompt(character):
     """プロフィール情報を含むシステムプロンプトを構築"""
     base_prompt = character["system_prompt"]
-    profile_summary = profile_manager.get_profile_summary()
+    context = profile_manager.get_full_context_for_character(character["name"])
     
-    if profile_summary != "（まだプロフィール情報がありません）":
+    if context:
         enhanced_prompt = f"""{base_prompt}
 
 【ユーザーについての情報】
-以下は、これまでの会話で得たユーザーについての情報です。自然に会話の中で活用してください。
+以下は、これまでの会話で得た情報です。自然に会話の中で活用してください。
 
-{profile_summary}
+{context}
 
 注意：この情報を唐突に全部話したり、確認したりしないでください。会話の流れの中で自然に思い出したように使ってください。"""
         return enhanced_prompt
@@ -118,7 +115,6 @@ def build_system_prompt(character):
 
 # ==================== UI ====================
 
-# タイトル
 st.title("💬 AI Character Chat")
 
 # サイドバー
@@ -157,20 +153,20 @@ with st.sidebar:
         
         st.divider()
         
-        # プロフィール管理
-        with st.expander("📝 あなたのプロフィール"):
-            profile_summary = profile_manager.get_profile_summary()
-            st.text(profile_summary)
+        # ==================== 共通プロフィール管理 ====================
+        with st.expander("👤 共通プロフィール"):
+            st.caption("全キャラクターが知っている情報")
             
-            st.caption("プロフィールは会話から自動で更新されます")
+            common_summary = profile_manager.get_common_profile_summary()
+            st.text(common_summary)
             
             # 手動追加フォーム
-            with st.form("manual_profile"):
-                st.subheader("手動で情報を追加")
+            with st.form("add_common_profile"):
+                st.subheader("情報を追加")
                 
                 info_type = st.selectbox(
                     "種類",
-                    ["基本情報", "好きなもの", "苦手なもの", "重要な出来事", "メモ"]
+                    ["基本情報", "好きなもの", "苦手なもの"]
                 )
                 
                 if info_type == "基本情報":
@@ -178,7 +174,7 @@ with st.sidebar:
                     value = st.text_input("内容")
                     if st.form_submit_button("追加"):
                         if key and value:
-                            profile_manager.update_basic_info(key, value)
+                            profile_manager.update_common_info(key, value)
                             st.success("追加しました！")
                             st.rerun()
                 
@@ -186,33 +182,147 @@ with st.sidebar:
                     item = st.text_input("好きなもの")
                     if st.form_submit_button("追加"):
                         if item:
-                            profile_manager.add_preference(item, "likes")
+                            profile_manager.add_common_preference(item, "likes")
                             st.success("追加しました！")
                             st.rerun()
                 
-                elif info_type == "苦手なもの":
+                else:  # 苦手なもの
                     item = st.text_input("苦手なもの")
                     if st.form_submit_button("追加"):
                         if item:
-                            profile_manager.add_preference(item, "dislikes")
+                            profile_manager.add_common_preference(item, "dislikes")
                             st.success("追加しました！")
                             st.rerun()
+            
+            # 削除機能
+            with st.form("delete_common_profile"):
+                st.subheader("情報を削除")
                 
-                elif info_type == "重要な出来事":
-                    event = st.text_area("出来事")
-                    if st.form_submit_button("追加"):
-                        if event:
-                            profile_manager.add_event(event)
-                            st.success("追加しました！")
-                            st.rerun()
+                delete_type = st.selectbox(
+                    "削除する種類",
+                    ["基本情報", "好きなもの", "苦手なもの"],
+                    key="delete_common_type"
+                )
                 
-                else:  # メモ
-                    note = st.text_area("メモ")
-                    if st.form_submit_button("追加"):
-                        if note:
-                            profile_manager.add_note(note)
-                            st.success("追加しました！")
+                profile = profile_manager.profile["common_profile"]
+                
+                if delete_type == "基本情報":
+                    if profile["basic_info"]:
+                        item_to_delete = st.selectbox(
+                            "削除する項目",
+                            list(profile["basic_info"].keys())
+                        )
+                        if st.form_submit_button("削除", type="secondary"):
+                            profile_manager.delete_common_info(item_to_delete)
+                            st.success("削除しました！")
                             st.rerun()
+                    else:
+                        st.caption("削除する項目がありません")
+                        st.form_submit_button("削除", disabled=True)
+                
+                elif delete_type == "好きなもの":
+                    if profile["preferences"]["likes"]:
+                        item_to_delete = st.selectbox(
+                            "削除する項目",
+                            profile["preferences"]["likes"]
+                        )
+                        if st.form_submit_button("削除", type="secondary"):
+                            profile_manager.delete_common_preference(item_to_delete, "likes")
+                            st.success("削除しました！")
+                            st.rerun()
+                    else:
+                        st.caption("削除する項目がありません")
+                        st.form_submit_button("削除", disabled=True)
+                
+                else:  # 苦手なもの
+                    if profile["preferences"]["dislikes"]:
+                        item_to_delete = st.selectbox(
+                            "削除する項目",
+                            profile["preferences"]["dislikes"]
+                        )
+                        if st.form_submit_button("削除", type="secondary"):
+                            profile_manager.delete_common_preference(item_to_delete, "dislikes")
+                            st.success("削除しました！")
+                            st.rerun()
+                    else:
+                        st.caption("削除する項目がありません")
+                        st.form_submit_button("削除", disabled=True)
+        
+        # ==================== キャラクター別記憶管理 ====================
+        with st.expander(f"💭 {char['name']}との記憶"):
+            st.caption("このキャラクターだけが知っている情報")
+            
+            char_summary = profile_manager.get_character_memory_summary(char['name'])
+            st.text(char_summary)
+            
+            # 手動追加
+            with st.form("add_character_memory"):
+                st.subheader("記憶を追加")
+                
+                memory_type = st.selectbox(
+                    "種類",
+                    ["トピック", "出来事", "メモ"]
+                )
+                
+                memory_map = {
+                    "トピック": "topics",
+                    "出来事": "events",
+                    "メモ": "notes"
+                }
+                
+                content = st.text_area("内容")
+                if st.form_submit_button("追加"):
+                    if content:
+                        profile_manager.add_character_memory(
+                            char['name'],
+                            memory_map[memory_type],
+                            content
+                        )
+                        st.success("追加しました！")
+                        st.rerun()
+            
+            # 削除機能
+            with st.form("delete_character_memory"):
+                st.subheader("記憶を削除")
+                
+                delete_memory_type = st.selectbox(
+                    "削除する種類",
+                    ["トピック", "出来事", "メモ"],
+                    key="delete_char_type"
+                )
+                
+                memory_type_key = memory_map[delete_memory_type]
+                
+                if char['name'] in profile_manager.profile["character_memories"]:
+                    memories = profile_manager.profile["character_memories"][char['name']][memory_type_key]
+                    
+                    if memories:
+                        # インデックスと内容を表示
+                        options = [f"{i}: {mem[:50]}..." if len(mem) > 50 else f"{i}: {mem}" 
+                                  for i, mem in enumerate(memories)]
+                        selected = st.selectbox("削除する項目", options)
+                        
+                        if st.form_submit_button("削除", type="secondary"):
+                            index = int(selected.split(":")[0])
+                            profile_manager.delete_character_memory(
+                                char['name'],
+                                memory_type_key,
+                                index
+                            )
+                            st.success("削除しました！")
+                            st.rerun()
+                    else:
+                        st.caption("削除する項目がありません")
+                        st.form_submit_button("削除", disabled=True)
+                else:
+                    st.caption("まだ記憶がありません")
+                    st.form_submit_button("削除", disabled=True)
+            
+            # 全削除
+            if st.button(f"🗑️ {char['name']}の記憶を全削除", type="secondary", use_container_width=True):
+                if profile_manager.delete_all_character_memories(char['name']):
+                    st.success("全ての記憶を削除しました")
+                    st.rerun()
         
         st.divider()
         
@@ -268,7 +378,7 @@ if prompt := st.chat_input("メッセージを入力..."):
                     "content": assistant_message
                 })
                 
-                # 会話を保存（Supabase）
+                # 会話を保存
                 db.save_conversations(
                     st.session_state.current_character,
                     st.session_state.messages
@@ -280,6 +390,7 @@ if prompt := st.chat_input("メッセージを入力..."):
                 # 5メッセージごとに自動情報抽出
                 if st.session_state.message_count % 5 == 0:
                     profile_manager.extract_info_from_conversation(
+                        st.session_state.current_character,
                         st.session_state.messages
                     )
                 

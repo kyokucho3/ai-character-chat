@@ -7,7 +7,7 @@ import os
 class ProfileManager:
     def __init__(self, supabase_manager, anthropic_api_key):
         """
-        プロフィール管理（Supabase版）
+        プロフィール管理（共通 + キャラクター別記憶対応版）
         
         Args:
             supabase_manager: SupabaseManagerインスタンス
@@ -16,60 +16,172 @@ class ProfileManager:
         self.db = supabase_manager
         self.profile = self.db.load_profile()
         self.client = Anthropic(api_key=anthropic_api_key)
+        
+        # 新しいデータ構造に移行
+        self._migrate_to_new_structure()
     
-    def update_basic_info(self, key, value):
-        """基本情報を更新"""
-        self.profile["basic_info"][key] = value
-        self.db.save_profile(self.profile)
-    
-    def add_preference(self, item, preference_type="likes"):
-        """好き・嫌いを追加"""
-        if item not in self.profile["preferences"][preference_type]:
-            self.profile["preferences"][preference_type].append(item)
+    def _migrate_to_new_structure(self):
+        """旧データ構造から新データ構造への移行"""
+        if "common_profile" not in self.profile:
+            # 旧データがあれば移行
+            old_data = {
+                "basic_info": self.profile.get("basic_info", {}),
+                "preferences": self.profile.get("preferences", {"likes": [], "dislikes": []})
+            }
+            
+            self.profile = {
+                "common_profile": old_data,
+                "character_memories": {},
+                "last_updated": self.profile.get("last_updated")
+            }
             self.db.save_profile(self.profile)
     
-    def add_event(self, event):
-        """重要な出来事を追加"""
-        event_data = {
-            "content": event,
-            "timestamp": datetime.now().isoformat()
-        }
-        self.profile["important_events"].append(event_data)
+    # ==================== 共通プロフィール ====================
+    
+    def update_common_info(self, key, value):
+        """共通の基本情報を更新"""
+        self.profile["common_profile"]["basic_info"][key] = value
         self.db.save_profile(self.profile)
     
-    def add_note(self, note):
-        """メモを追加"""
-        note_data = {
-            "content": note,
-            "timestamp": datetime.now().isoformat()
-        }
-        self.profile["notes"].append(note_data)
-        self.db.save_profile(self.profile)
+    def delete_common_info(self, key):
+        """共通の基本情報を削除"""
+        if key in self.profile["common_profile"]["basic_info"]:
+            del self.profile["common_profile"]["basic_info"][key]
+            self.db.save_profile(self.profile)
+            return True
+        return False
     
-    def get_profile_summary(self):
-        """プロフィールの要約を取得"""
+    def add_common_preference(self, item, preference_type="likes"):
+        """共通の好き・嫌いを追加"""
+        if item not in self.profile["common_profile"]["preferences"][preference_type]:
+            self.profile["common_profile"]["preferences"][preference_type].append(item)
+            self.db.save_profile(self.profile)
+    
+    def delete_common_preference(self, item, preference_type="likes"):
+        """共通の好き・嫌いを削除"""
+        if item in self.profile["common_profile"]["preferences"][preference_type]:
+            self.profile["common_profile"]["preferences"][preference_type].remove(item)
+            self.db.save_profile(self.profile)
+            return True
+        return False
+    
+    def get_common_profile_summary(self):
+        """共通プロフィールの要約を取得"""
+        common = self.profile["common_profile"]
         summary = []
         
-        if self.profile["basic_info"]:
+        if common["basic_info"]:
             summary.append("【基本情報】")
-            for key, value in self.profile["basic_info"].items():
+            for key, value in common["basic_info"].items():
                 summary.append(f"- {key}: {value}")
         
-        if self.profile["preferences"]["likes"]:
-            summary.append(f"\n【好きなもの】\n- " + "、".join(self.profile["preferences"]["likes"]))
+        if common["preferences"]["likes"]:
+            summary.append(f"\n【好きなもの】\n- " + "、".join(common["preferences"]["likes"]))
         
-        if self.profile["preferences"]["dislikes"]:
-            summary.append(f"\n【苦手なもの】\n- " + "、".join(self.profile["preferences"]["dislikes"]))
+        if common["preferences"]["dislikes"]:
+            summary.append(f"\n【苦手なもの】\n- " + "、".join(common["preferences"]["dislikes"]))
         
-        if self.profile["important_events"]:
-            summary.append("\n【重要な出来事】")
-            for event in self.profile["important_events"][-5:]:  # 最新5件
-                summary.append(f"- {event['content']}")
-        
-        return "\n".join(summary) if summary else "（まだプロフィール情報がありません）"
+        return "\n".join(summary) if summary else "（まだ情報がありません）"
     
-    def extract_info_from_conversation(self, messages):
-        """会話から情報を自動抽出"""
+    # ==================== キャラクター別記憶 ====================
+    
+    def add_character_memory(self, character_name, memory_type, content):
+        """キャラクター別の記憶を追加
+        
+        Args:
+            character_name: キャラクター名
+            memory_type: "topics", "events", "notes"
+            content: 記憶内容
+        """
+        if character_name not in self.profile["character_memories"]:
+            self.profile["character_memories"][character_name] = {
+                "topics": [],
+                "events": [],
+                "notes": []
+            }
+        
+        if memory_type == "events":
+            # イベントにはタイムスタンプを付ける
+            timestamp = datetime.now().strftime("%Y/%m/%d")
+            content = f"{timestamp}: {content}"
+        
+        if content not in self.profile["character_memories"][character_name][memory_type]:
+            self.profile["character_memories"][character_name][memory_type].append(content)
+            self.db.save_profile(self.profile)
+    
+    def delete_character_memory(self, character_name, memory_type, index):
+        """キャラクター別の記憶を削除
+        
+        Args:
+            character_name: キャラクター名
+            memory_type: "topics", "events", "notes"
+            index: 削除するインデックス
+        """
+        if character_name in self.profile["character_memories"]:
+            memories = self.profile["character_memories"][character_name][memory_type]
+            if 0 <= index < len(memories):
+                memories.pop(index)
+                self.db.save_profile(self.profile)
+                return True
+        return False
+    
+    def delete_all_character_memories(self, character_name):
+        """特定キャラクターの記憶を全削除"""
+        if character_name in self.profile["character_memories"]:
+            del self.profile["character_memories"][character_name]
+            self.db.save_profile(self.profile)
+            return True
+        return False
+    
+    def get_character_memory_summary(self, character_name):
+        """キャラクター別記憶の要約を取得"""
+        if character_name not in self.profile["character_memories"]:
+            return "（まだ記憶がありません）"
+        
+        memories = self.profile["character_memories"][character_name]
+        summary = []
+        
+        if memories["topics"]:
+            summary.append("【話したトピック】")
+            for topic in memories["topics"]:
+                summary.append(f"- {topic}")
+        
+        if memories["events"]:
+            summary.append("\n【重要な出来事】")
+            for event in memories["events"][-5:]:  # 最新5件
+                summary.append(f"- {event}")
+        
+        if memories["notes"]:
+            summary.append("\n【メモ】")
+            for note in memories["notes"]:
+                summary.append(f"- {note}")
+        
+        return "\n".join(summary) if summary else "（まだ記憶がありません）"
+    
+    # ==================== システムプロンプト用 ====================
+    
+    def get_full_context_for_character(self, character_name):
+        """特定キャラクター用の完全なコンテキストを取得"""
+        context = []
+        
+        # 共通プロフィール
+        common_summary = self.get_common_profile_summary()
+        if common_summary != "（まだ情報がありません）":
+            context.append("【ユーザーの基本情報（全キャラクター共通）】")
+            context.append(common_summary)
+        
+        # キャラクター別記憶
+        char_summary = self.get_character_memory_summary(character_name)
+        if char_summary != "（まだ記憶がありません）":
+            context.append(f"\n【{character_name}との記憶】")
+            context.append(char_summary)
+        
+        return "\n".join(context) if context else None
+    
+    # ==================== 自動抽出 ====================
+    
+    def extract_info_from_conversation(self, character_name, messages):
+        """会話から情報を自動抽出（共通 + キャラクター別）"""
         if len(messages) < 4:
             return
         
@@ -86,17 +198,23 @@ class ProfileManager:
 以下のカテゴリに該当する情報があれば、JSON形式で返してください。該当するものがない場合は空のオブジェクトを返してください。
 
 {{
-  "basic_info": {{"キー": "値"}},
-  "likes": ["好きなもの1", "好きなもの2"],
-  "dislikes": ["苦手なもの1"],
-  "events": ["重要な出来事1"],
-  "notes": ["その他のメモ1"]
+  "common": {{
+    "basic_info": {{"キー": "値"}},
+    "likes": ["好きなもの1"],
+    "dislikes": ["苦手なもの1"]
+  }},
+  "character_specific": {{
+    "topics": ["このキャラクターと話したトピック"],
+    "events": ["このキャラクターとの重要な出来事"],
+    "notes": ["このキャラクターとの関係性についてのメモ"]
+  }}
 }}
 
 注意：
-- 明確に言及されている情報のみ抽出する
+- common: 全キャラクターが知っておくべき基本情報（名前、趣味など）
+- character_specific: このキャラクターだけが知っている内容
+- 明確に言及されている情報のみ抽出
 - 推測や憶測は含めない
-- 重要でない日常会話は無視する
 - JSONのみを返し、他の説明は不要"""
 
         try:
@@ -114,26 +232,37 @@ class ProfileManager:
             
             extracted = json.loads(result_text)
             
-            # 抽出された情報をプロフィールに追加
-            if extracted.get("basic_info"):
-                for key, value in extracted["basic_info"].items():
-                    self.update_basic_info(key, value)
+            # 共通情報を追加
+            if extracted.get("common"):
+                common = extracted["common"]
+                
+                if common.get("basic_info"):
+                    for key, value in common["basic_info"].items():
+                        self.update_common_info(key, value)
+                
+                if common.get("likes"):
+                    for item in common["likes"]:
+                        self.add_common_preference(item, "likes")
+                
+                if common.get("dislikes"):
+                    for item in common["dislikes"]:
+                        self.add_common_preference(item, "dislikes")
             
-            if extracted.get("likes"):
-                for item in extracted["likes"]:
-                    self.add_preference(item, "likes")
-            
-            if extracted.get("dislikes"):
-                for item in extracted["dislikes"]:
-                    self.add_preference(item, "dislikes")
-            
-            if extracted.get("events"):
-                for event in extracted["events"]:
-                    self.add_event(event)
-            
-            if extracted.get("notes"):
-                for note in extracted["notes"]:
-                    self.add_note(note)
+            # キャラクター別情報を追加
+            if extracted.get("character_specific"):
+                char_data = extracted["character_specific"]
+                
+                if char_data.get("topics"):
+                    for topic in char_data["topics"]:
+                        self.add_character_memory(character_name, "topics", topic)
+                
+                if char_data.get("events"):
+                    for event in char_data["events"]:
+                        self.add_character_memory(character_name, "events", event)
+                
+                if char_data.get("notes"):
+                    for note in char_data["notes"]:
+                        self.add_character_memory(character_name, "notes", note)
                     
         except Exception as e:
             pass  # エラーは無視
