@@ -1,0 +1,24 @@
+{
+  "name": "AI Character Chat",
+  "short_name": "AI Chat",
+  "description": "あなた専用のAIキャラクターチャット",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff4b4b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/app/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -18,6 +18,50 @@ st.set_page_config(
     layout="centered"
 )
 
+# PWA用のメタタグを追加
+st.markdown("""
+<head>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ff4b4b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AI Chat">
+    <link rel="apple-touch-icon" href="/app/static/icon-192.png">
+</head>
+""", unsafe_allow_html=True)
+
+# PWA設定を追加
+def add_pwa_support():
+    """PWAサポートを追加"""
+    pwa_script = """
+    <head>
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#FF4B4B">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="AI Chat">
+        <link rel="apple-touch-icon" href="/icon-192.png">
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/service-worker.js')
+                        .then(function(registration) {
+                            console.log('ServiceWorker registration successful');
+                        })
+                        .catch(function(err) {
+                            console.log('ServiceWorker registration failed: ', err);
+                        });
+                });
+            }
+        </script>
+    </head>
+    """
+    st.markdown(pwa_script, unsafe_allow_html=True)
+
+# PWAサポートを追加
+add_pwa_support()
+
 # ==================== 認証機能 ====================
 
 def hash_password(password: str) -> str:
@@ -79,7 +123,18 @@ def get_anthropic_client():
 # マネージャー初期化
 db = get_supabase_manager(st.session_state.user_id)
 client = get_anthropic_client()
-profile_manager = ProfileManager(db, os.getenv("ANTHROPIC_API_KEY"))
+
+# ProfileManagerをセッション状態で管理（キャッシュ問題を回避）
+if "profile_manager" not in st.session_state:
+    try:
+        st.session_state.profile_manager = ProfileManager(db, os.getenv("ANTHROPIC_API_KEY"))
+    except Exception as e:
+        st.error(f"ProfileManager初期化エラー: {str(e)}")
+        import traceback
+        st.text(traceback.format_exc())
+        st.stop()
+
+profile_manager = st.session_state.profile_manager
 
 # セッション状態の初期化
 if "current_character" not in st.session_state:
@@ -157,8 +212,17 @@ with st.sidebar:
         with st.expander("👤 共通プロフィール"):
             st.caption("全キャラクターが知っている情報")
             
-            common_summary = profile_manager.get_common_profile_summary()
-            st.text(common_summary)
+            try:
+                # デバッグ情報
+                st.write("Debug: profile structure:", profile_manager.profile.keys())
+                
+                common_summary = profile_manager.get_common_profile_summary()
+                st.text(common_summary)
+            except Exception as e:
+                st.error(f"エラー詳細: {str(e)}")
+                st.write("Profile data:", profile_manager.profile)
+                # とりあえず空で表示
+                st.text("（プロフィール読み込みエラー）")
             
             # 手動追加フォーム
             with st.form("add_common_profile"):
