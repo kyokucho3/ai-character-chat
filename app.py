@@ -143,6 +143,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "message_count" not in st.session_state:
     st.session_state.message_count = 0
+if "selected_model" not in st.session_state:
+    st.session_state.selected_model = "claude-sonnet-4-20250514"
 
 # ==================== 関数定義 ====================
 
@@ -181,10 +183,207 @@ with st.sidebar:
         st.rerun()
     
     st.divider()
+# モデル選択
+    st.subheader("🎯 モデル設定")
+    
+    model_options = {
+        "Haiku (高速・安価)": "claude-haiku-4-20250514",
+        "Sonnet (推奨)": "claude-sonnet-4-20250514",
+        "Opus (最高品質)": "claude-opus-4-20250514"
+    }
+    
+    model_descriptions = {
+        "Haiku (高速・安価)": "💬 雑談や簡単な会話に最適\n入力: $0.25/M · 出力: $1.25/M",
+        "Sonnet (推奨)": "⭐ 通常の会話におすすめ\n入力: $3/M · 出力: $15/M",
+        "Opus (最高品質)": "🎓 複雑な相談や深い議論向け\n入力: $15/M · 出力: $75/M"
+    }
+    
+    selected_model_name = st.radio(
+        "モデルを選択",
+        list(model_options.keys()),
+        index=1,  # Sonnetをデフォルト
+        help="会話の内容に応じてモデルを選択してください"
+    )
+# 共通プロフィール（常に表示）
+    with st.expander("👤 共通プロフィール"):
+        st.caption("全キャラクターが知っている情報")
+        
+        try:
+            common_summary = profile_manager.get_common_profile_summary()
+            st.text(common_summary)
+        except Exception as e:
+            st.error(f"エラー: {str(e)}")
+            st.text("（プロフィール読み込みエラー）")
+        
+        # 手動追加
+        st.subheader("情報を追加")
+        
+        info_type = st.selectbox(
+            "種類",
+            ["基本情報", "好きなもの", "苦手なもの"],
+            key="add_info_type"
+        )
+        
+        if info_type == "基本情報":
+            with st.form("add_basic_info"):
+                key = st.text_input("項目名（例：名前、職業）")
+                value = st.text_input("内容")
+                if st.form_submit_button("追加"):
+                    if key and value:
+                        profile_manager.update_common_info(key, value)
+                        st.success("追加しました！")
+                        st.rerun()
+        
+        elif info_type == "好きなもの":
+            with st.form("add_like"):
+                item = st.text_input("好きなもの")
+                if st.form_submit_button("追加"):
+                    if item:
+                        profile_manager.add_common_preference(item, "likes")
+                        st.success("追加しました！")
+                        st.rerun()
+        
+        else:  # 苦手なもの
+            with st.form("add_dislike"):
+                item = st.text_input("苦手なもの")
+                if st.form_submit_button("追加"):
+                    if item:
+                        profile_manager.add_common_preference(item, "dislikes")
+                        st.success("追加しました！")
+                        st.rerun()
+            
+            if info_type == "基本情報":
+                key = st.text_input("項目名（例：名前、職業）")
+                value = st.text_input("内容")
+                if st.form_submit_button("追加"):
+                    if key and value:
+                        profile_manager.update_common_info(key, value)
+                        st.success("追加しました！")
+                        st.rerun()
+            
+            elif info_type == "好きなもの":
+                item = st.text_input("好きなもの")
+                if st.form_submit_button("追加"):
+                    if item:
+                        profile_manager.add_common_preference(item, "likes")
+                        st.success("追加しました！")
+                        st.rerun()
+            
+            else:  # 苦手なもの
+                item = st.text_input("苦手なもの")
+                if st.form_submit_button("追加"):
+                    if item:
+                        profile_manager.add_common_preference(item, "dislikes")
+                        st.success("追加しました！")
+                        st.rerun()
+        
+        # 削除機能
+        st.subheader("情報を削除")
+        
+        delete_type = st.selectbox(
+            "削除する種類",
+            ["基本情報", "好きなもの", "苦手なもの"],
+            key="delete_common_type"
+        )
+        
+        profile = profile_manager.profile["common_profile"]
+        
+        if delete_type == "基本情報":
+            if profile["basic_info"]:
+                with st.form("delete_basic_info"):
+                    item_to_delete = st.selectbox(
+                        "削除する項目",
+                        list(profile["basic_info"].keys())
+                    )
+                    if st.form_submit_button("削除", type="secondary"):
+                        profile_manager.delete_common_info(item_to_delete)
+                        st.success("削除しました！")
+                        st.rerun()
+            else:
+                st.caption("削除する項目がありません")
+        
+        elif delete_type == "好きなもの":
+            if profile["preferences"]["likes"]:
+                with st.form("delete_like"):
+                    item_to_delete = st.selectbox(
+                        "削除する項目",
+                        profile["preferences"]["likes"]
+                    )
+                    if st.form_submit_button("削除", type="secondary"):
+                        profile_manager.delete_common_preference(item_to_delete, "likes")
+                        st.success("削除しました！")
+                        st.rerun()
+            else:
+                st.caption("削除する項目がありません")
+        
+        else:  # 苦手なもの
+            if profile["preferences"]["dislikes"]:
+                with st.form("delete_dislike"):
+                    item_to_delete = st.selectbox(
+                        "削除する項目",
+                        profile["preferences"]["dislikes"]
+                    )
+                    if st.form_submit_button("削除", type="secondary"):
+                        profile_manager.delete_common_preference(item_to_delete, "dislikes")
+                        st.success("削除しました！")
+                        st.rerun()
+            else:
+                st.caption("削除する項目がありません")
+            
+            profile = profile_manager.profile["common_profile"]
+            
+            if delete_type == "基本情報":
+                if profile["basic_info"]:
+                    item_to_delete = st.selectbox(
+                        "削除する項目",
+                        list(profile["basic_info"].keys())
+                    )
+                    if st.form_submit_button("削除", type="secondary"):
+                        profile_manager.delete_common_info(item_to_delete)
+                        st.success("削除しました！")
+                        st.rerun()
+                else:
+                    st.caption("削除する項目がありません")
+                    st.form_submit_button("削除", disabled=True)
+            
+            elif delete_type == "好きなもの":
+                if profile["preferences"]["likes"]:
+                    item_to_delete = st.selectbox(
+                        "削除する項目",
+                        profile["preferences"]["likes"]
+                    )
+                    if st.form_submit_button("削除", type="secondary"):
+                        profile_manager.delete_common_preference(item_to_delete, "likes")
+                        st.success("削除しました！")
+                        st.rerun()
+                else:
+                    st.caption("削除する項目がありません")
+                    st.form_submit_button("削除", disabled=True)
+            
+            else:  # 苦手なもの
+                if profile["preferences"]["dislikes"]:
+                    item_to_delete = st.selectbox(
+                        "削除する項目",
+                        profile["preferences"]["dislikes"]
+                    )
+                    if st.form_submit_button("削除", type="secondary"):
+                        profile_manager.delete_common_preference(item_to_delete, "dislikes")
+                        st.success("削除しました！")
+                        st.rerun()
+                else:
+                    st.caption("削除する項目がありません")
+                    st.form_submit_button("削除", disabled=True)
+    
+    st.divider()
+    st.session_state.selected_model = model_options[selected_model_name]
+    st.caption(model_descriptions[selected_model_name])
+    
+
+    st.divider()
     st.header("キャラクター選択")
     
     # キャラクター選択ボタン
-    for char_name, char_info in CHARACTERS.items():
+    for char_i, (char_name, char_info) in enumerate(CHARACTERS.items()):
         if st.button(
             f"{char_info['emoji']} {char_name}",
             key=f"select_{char_name}",
@@ -208,110 +407,6 @@ with st.sidebar:
         
         st.divider()
         
-        # ==================== 共通プロフィール管理 ====================
-        with st.expander("👤 共通プロフィール"):
-            st.caption("全キャラクターが知っている情報")
-            
-            try:
-                # デバッグ情報
-                st.write("Debug: profile structure:", profile_manager.profile.keys())
-                
-                common_summary = profile_manager.get_common_profile_summary()
-                st.text(common_summary)
-            except Exception as e:
-                st.error(f"エラー詳細: {str(e)}")
-                st.write("Profile data:", profile_manager.profile)
-                # とりあえず空で表示
-                st.text("（プロフィール読み込みエラー）")
-            
-            # 手動追加フォーム
-            with st.form("add_common_profile"):
-                st.subheader("情報を追加")
-                
-                info_type = st.selectbox(
-                    "種類",
-                    ["基本情報", "好きなもの", "苦手なもの"]
-                )
-                
-                if info_type == "基本情報":
-                    key = st.text_input("項目名（例：名前、職業）")
-                    value = st.text_input("内容")
-                    if st.form_submit_button("追加"):
-                        if key and value:
-                            profile_manager.update_common_info(key, value)
-                            st.success("追加しました！")
-                            st.rerun()
-                
-                elif info_type == "好きなもの":
-                    item = st.text_input("好きなもの")
-                    if st.form_submit_button("追加"):
-                        if item:
-                            profile_manager.add_common_preference(item, "likes")
-                            st.success("追加しました！")
-                            st.rerun()
-                
-                else:  # 苦手なもの
-                    item = st.text_input("苦手なもの")
-                    if st.form_submit_button("追加"):
-                        if item:
-                            profile_manager.add_common_preference(item, "dislikes")
-                            st.success("追加しました！")
-                            st.rerun()
-            
-            # 削除機能
-            with st.form("delete_common_profile"):
-                st.subheader("情報を削除")
-                
-                delete_type = st.selectbox(
-                    "削除する種類",
-                    ["基本情報", "好きなもの", "苦手なもの"],
-                    key="delete_common_type"
-                )
-                
-                profile = profile_manager.profile["common_profile"]
-                
-                if delete_type == "基本情報":
-                    if profile["basic_info"]:
-                        item_to_delete = st.selectbox(
-                            "削除する項目",
-                            list(profile["basic_info"].keys())
-                        )
-                        if st.form_submit_button("削除", type="secondary"):
-                            profile_manager.delete_common_info(item_to_delete)
-                            st.success("削除しました！")
-                            st.rerun()
-                    else:
-                        st.caption("削除する項目がありません")
-                        st.form_submit_button("削除", disabled=True)
-                
-                elif delete_type == "好きなもの":
-                    if profile["preferences"]["likes"]:
-                        item_to_delete = st.selectbox(
-                            "削除する項目",
-                            profile["preferences"]["likes"]
-                        )
-                        if st.form_submit_button("削除", type="secondary"):
-                            profile_manager.delete_common_preference(item_to_delete, "likes")
-                            st.success("削除しました！")
-                            st.rerun()
-                    else:
-                        st.caption("削除する項目がありません")
-                        st.form_submit_button("削除", disabled=True)
-                
-                else:  # 苦手なもの
-                    if profile["preferences"]["dislikes"]:
-                        item_to_delete = st.selectbox(
-                            "削除する項目",
-                            profile["preferences"]["dislikes"]
-                        )
-                        if st.form_submit_button("削除", type="secondary"):
-                            profile_manager.delete_common_preference(item_to_delete, "dislikes")
-                            st.success("削除しました！")
-                            st.rerun()
-                    else:
-                        st.caption("削除する項目がありません")
-                        st.form_submit_button("削除", disabled=True)
-        
         # ==================== キャラクター別記憶管理 ====================
         with st.expander(f"💭 {char['name']}との記憶"):
             st.caption("このキャラクターだけが知っている情報")
@@ -320,8 +415,32 @@ with st.sidebar:
             st.text(char_summary)
             
             # 手動追加
-            with st.form("add_character_memory"):
-                st.subheader("記憶を追加")
+            st.subheader("記憶を追加")
+            
+            memory_type = st.selectbox(
+                "種類",
+                ["トピック", "出来事", "メモ"],
+                key="add_memory_type"
+            )
+            
+            memory_map = {
+                "トピック": "topics",
+                "出来事": "events",
+                "メモ": "notes"
+            }
+            
+            with st.form(f"add_character_memory_{char['name']}_{memory_type}_{char_i}"):
+                content = st.text_area("内容")
+                if st.form_submit_button("追加"):
+                    if content:
+                        profile_manager.add_character_memory(
+                            char['name'],
+                            memory_map[memory_type],
+                            content
+                        )
+                        st.success("追加しました！")
+                        st.rerun()
+
                 
                 memory_type = st.selectbox(
                     "種類",
@@ -333,9 +452,10 @@ with st.sidebar:
                     "出来事": "events",
                     "メモ": "notes"
                 }
+
                 
-                content = st.text_area("内容")
-                if st.form_submit_button("追加"):
+                content = st.text_area("内容", key=f"add_memory_content_{char['name']}_{memory_type}_{char_i}")
+                if st.form_submit_button("追加", key=f"add_memory_content_{char['name']}_{memory_type}"+ str(char_i + 1)):
                     if content:
                         profile_manager.add_character_memory(
                             char['name'],
@@ -344,16 +464,48 @@ with st.sidebar:
                         )
                         st.success("追加しました！")
                         st.rerun()
+
             
-            # 削除機能
-            with st.form("delete_character_memory"):
-                st.subheader("記憶を削除")
+           # 削除機能
+        st.subheader("記憶を削除")
+            
+        memory_map = {
+                "トピック": "topics",
+                "出来事": "events",
+                "メモ": "notes"
+            }
+            
+        delete_memory_type = st.selectbox(
+                "削除する種類",
+                ["トピック", "出来事", "メモ"],
+                key="delete_char_type"
+            )
+            
+        memory_type_key = memory_map[delete_memory_type]
+            
+        if char['name'] in profile_manager.profile["character_memories"]:
+                memories = profile_manager.profile["character_memories"][char['name']][memory_type_key]
                 
-                delete_memory_type = st.selectbox(
-                    "削除する種類",
-                    ["トピック", "出来事", "メモ"],
-                    key="delete_char_type"
-                )
+                if memories:
+                    with st.form(f"delete_character_memory_{char['name']}"):
+                        # インデックスと内容を表示
+                        options = [f"{i}: {mem[:50]}..." if len(mem) > 50 else f"{i}: {mem}" 
+                                  for i, mem in enumerate(memories)]
+                        selected = st.selectbox("削除する項目", options)
+                        
+                        if st.form_submit_button("削除", type="secondary"):
+                            index = int(selected.split(":")[0])
+                            profile_manager.delete_character_memory(
+                                char['name'],
+                                memory_type_key,
+                                index
+                            )
+                            st.success("削除しました！")
+                            st.rerun()
+                else:
+                    st.caption("削除する項目がありません")
+        else:
+                st.caption("まだ記憶がありません")
                 
                 memory_type_key = memory_map[delete_memory_type]
                 
@@ -383,7 +535,7 @@ with st.sidebar:
                     st.form_submit_button("削除", disabled=True)
             
             # 全削除
-            if st.button(f"🗑️ {char['name']}の記憶を全削除", type="secondary", use_container_width=True):
+        if st.button(f"🗑️ {char['name']}の記憶を全削除", type="secondary", use_container_width=True):
                 if profile_manager.delete_all_character_memories(char['name']):
                     st.success("全ての記憶を削除しました")
                     st.rerun()
@@ -402,17 +554,39 @@ if not st.session_state.current_character:
     st.info("👈 サイドバーからキャラクターを選んでください")
     st.stop()
 
+# カスタムCSS（吹き出しスタイル）
+st.markdown("""
+<style>
+    .stChatMessage {
+        padding: 1rem;
+        border-radius: 1rem;
+        margin-bottom: 1rem;
+    }
+    .timestamp {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 0.25rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # メッセージ表示
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
+        if "timestamp" in message:
+            st.markdown(f'<div class="timestamp">{message["timestamp"]}</div>', unsafe_allow_html=True)
 
 # ユーザー入力
 if prompt := st.chat_input("メッセージを入力..."):
     # ユーザーメッセージを追加
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%H:%M")
+    
     st.session_state.messages.append({
         "role": "user",
-        "content": prompt
+        "content": prompt,
+        "timestamp": timestamp
     })
     
     with st.chat_message("user"):
@@ -427,7 +601,7 @@ if prompt := st.chat_input("メッセージを入力..."):
                 recent_messages = get_recent_messages(st.session_state.messages)
                 
                 response = client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model=st.session_state.selected_model,
                     max_tokens=1000,
                     system=system_prompt,
                     messages=recent_messages
@@ -437,9 +611,12 @@ if prompt := st.chat_input("メッセージを入力..."):
                 st.write(assistant_message)
                 
                 # アシスタントメッセージを追加
+                timestamp = datetime.now().strftime("%H:%M")
+                
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": assistant_message
+                    "content": assistant_message,
+                    "timestamp": timestamp
                 })
                 
                 # 会話を保存
