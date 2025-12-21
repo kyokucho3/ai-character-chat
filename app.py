@@ -224,6 +224,7 @@ with st.sidebar:
             key="add_info_type"
         )
         
+        
         if info_type == "基本情報":
             with st.form("add_basic_info"):
                 key = st.text_input("項目名（例：名前、職業）")
@@ -242,34 +243,9 @@ with st.sidebar:
                         profile_manager.add_common_preference(item, "likes")
                         st.success("追加しました！")
                         st.rerun()
-        
+    
         else:  # 苦手なもの
             with st.form("add_dislike"):
-                item = st.text_input("苦手なもの")
-                if st.form_submit_button("追加"):
-                    if item:
-                        profile_manager.add_common_preference(item, "dislikes")
-                        st.success("追加しました！")
-                        st.rerun()
-            
-            if info_type == "基本情報":
-                key = st.text_input("項目名（例：名前、職業）")
-                value = st.text_input("内容")
-                if st.form_submit_button("追加"):
-                    if key and value:
-                        profile_manager.update_common_info(key, value)
-                        st.success("追加しました！")
-                        st.rerun()
-            
-            elif info_type == "好きなもの":
-                item = st.text_input("好きなもの")
-                if st.form_submit_button("追加"):
-                    if item:
-                        profile_manager.add_common_preference(item, "likes")
-                        st.success("追加しました！")
-                        st.rerun()
-            
-            else:  # 苦手なもの
                 item = st.text_input("苦手なもの")
                 if st.form_submit_button("追加"):
                     if item:
@@ -420,7 +396,7 @@ with st.sidebar:
             memory_type = st.selectbox(
                 "種類",
                 ["トピック", "出来事", "メモ"],
-                key="add_memory_type"
+                key=f"add_memory_type_{char['name']}"
             )
             
             memory_map = {
@@ -429,8 +405,8 @@ with st.sidebar:
                 "メモ": "notes"
             }
             
-            with st.form(f"add_character_memory_{char['name']}_{memory_type}_{char_i}"):
-                content = st.text_area("内容")
+            with st.form(f"add_character_memory_{char['name']}_{memory_type}"):
+                content = st.text_area("内容", key=f"add_memory_content_{char['name']}_{memory_type}")
                 if st.form_submit_button("追加"):
                     if content:
                         profile_manager.add_character_memory(
@@ -440,57 +416,26 @@ with st.sidebar:
                         )
                         st.success("追加しました！")
                         st.rerun()
-
-                
-                memory_type = st.selectbox(
-                    "種類",
-                    ["トピック", "出来事", "メモ"]
-                )
-                
-                memory_map = {
-                    "トピック": "topics",
-                    "出来事": "events",
-                    "メモ": "notes"
-                }
-
-                
-                content = st.text_area("内容", key=f"add_memory_content_{char['name']}_{memory_type}_{char_i}")
-                if st.form_submit_button("追加", key=f"add_memory_content_{char['name']}_{memory_type}"+ str(char_i + 1)):
-                    if content:
-                        profile_manager.add_character_memory(
-                            char['name'],
-                            memory_map[memory_type],
-                            content
-                        )
-                        st.success("追加しました！")
-                        st.rerun()
-
             
-           # 削除機能
-        st.subheader("記憶を削除")
+            # 削除機能
+            st.subheader("記憶を削除")
             
-        memory_map = {
-                "トピック": "topics",
-                "出来事": "events",
-                "メモ": "notes"
-            }
-            
-        delete_memory_type = st.selectbox(
+            delete_memory_type = st.selectbox(
                 "削除する種類",
                 ["トピック", "出来事", "メモ"],
-                key="delete_char_type"
+                key=f"delete_char_type_{char['name']}"
             )
             
-        memory_type_key = memory_map[delete_memory_type]
+            memory_type_key = memory_map[delete_memory_type]
             
-        if char['name'] in profile_manager.profile["character_memories"]:
+            if char['name'] in profile_manager.profile["character_memories"]:
                 memories = profile_manager.profile["character_memories"][char['name']][memory_type_key]
                 
                 if memories:
-                    with st.form(f"delete_character_memory_{char['name']}"):
+                    with st.form(f"delete_character_memory_{char['name']}_{delete_memory_type}"):
                         # インデックスと内容を表示
                         options = [f"{i}: {mem[:50]}..." if len(mem) > 50 else f"{i}: {mem}" 
-                                  for i, mem in enumerate(memories)]
+                                for i, mem in enumerate(memories)]
                         selected = st.selectbox("削除する項目", options)
                         
                         if st.form_submit_button("削除", type="secondary"):
@@ -504,50 +449,23 @@ with st.sidebar:
                             st.rerun()
                 else:
                     st.caption("削除する項目がありません")
-        else:
+            else:
                 st.caption("まだ記憶がありません")
-                
-                memory_type_key = memory_map[delete_memory_type]
-                
-                if char['name'] in profile_manager.profile["character_memories"]:
-                    memories = profile_manager.profile["character_memories"][char['name']][memory_type_key]
-                    
-                    if memories:
-                        # インデックスと内容を表示
-                        options = [f"{i}: {mem[:50]}..." if len(mem) > 50 else f"{i}: {mem}" 
-                                  for i, mem in enumerate(memories)]
-                        selected = st.selectbox("削除する項目", options)
-                        
-                        if st.form_submit_button("削除", type="secondary"):
-                            index = int(selected.split(":")[0])
-                            profile_manager.delete_character_memory(
-                                char['name'],
-                                memory_type_key,
-                                index
-                            )
-                            st.success("削除しました！")
-                            st.rerun()
-                    else:
-                        st.caption("削除する項目がありません")
-                        st.form_submit_button("削除", disabled=True)
-                else:
-                    st.caption("まだ記憶がありません")
-                    st.form_submit_button("削除", disabled=True)
             
             # 全削除
-        if st.button(f"🗑️ {char['name']}の記憶を全削除", type="secondary", use_container_width=True):
+            if st.button(f"🗑️ {char['name']}の記憶を全削除", type="secondary", use_container_width=True):
                 if profile_manager.delete_all_character_memories(char['name']):
                     st.success("全ての記憶を削除しました")
                     st.rerun()
         
-        st.divider()
+            st.divider()
         
         # 会話リセットボタン
-        if st.button("🔄 会話をリセット", use_container_width=True):
-            db.delete_conversations(st.session_state.current_character)
-            st.session_state.messages = []
-            st.session_state.message_count = 0
-            st.rerun()
+            if st.button("🔄 会話をリセット", use_container_width=True):
+                db.delete_conversations(st.session_state.current_character)
+                st.session_state.messages = []
+                st.session_state.message_count = 0
+                st.rerun()
 
 # メイン画面
 if not st.session_state.current_character:
