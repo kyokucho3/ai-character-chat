@@ -479,7 +479,7 @@ st.markdown("""
     /* ユーザーメッセージ（右寄せ・青系） */
     [data-testid="stChatMessageContent"][data-testid*="user"] {
         background-color: rgba(59, 130, 246, 0.35) !important;
-        border-left: 1.5px solid rgba(59, 130, 246, 0.6);
+        border-left: 2px solid rgba(59, 130, 246, 0.6);
         padding: 0.75rem 1rem;
         border-radius: 1rem;
         margin-bottom: 0.5rem;
@@ -488,7 +488,7 @@ st.markdown("""
     /* AIメッセージ（左寄せ・グレー系） */
     [data-testid="stChatMessageContent"]:not([data-testid*="user"]) {
         background-color: rgba(100, 100, 100, 0.35) !important;
-        border-left: 1.5px solid rgba(150, 150, 150, 0.4);
+        border-left: 2px solid rgba(150, 150, 150, 0.4);
         padding: 0.75rem 1rem;
         border-radius: 1rem;
         margin-bottom: 0.5rem;
