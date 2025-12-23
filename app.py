@@ -187,9 +187,9 @@ with st.sidebar:
     st.subheader("🎯 モデル設定")
     
     model_options = {
-        "Haiku (高速・安価)": "claude-haiku-4-20250514",
-        "Sonnet (推奨)": "claude-sonnet-4-20250514",
-        "Opus (最高品質)": "claude-opus-4-20250514"
+        "Haiku (高速・安価)": "claude-haiku-4-5-20251001",
+        "Sonnet (推奨)": "claude-sonnet-4-5-20250929",
+        "Opus (最高品質)": "claude-opus-4-1-20250805"
     }
     
     model_descriptions = {
@@ -205,7 +205,7 @@ with st.sidebar:
         help="会話の内容に応じてモデルを選択してください"
     )
 # 共通プロフィール（常に表示）
-    with st.expander("👤 共通プロフィール"):
+    with st.expander("🐈 共通プロフィール"):
         st.caption("全キャラクターが知っている情報")
         
         try:
@@ -489,8 +489,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # メッセージ表示
+# メッセージ表示
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    # アバターを設定
+    if message["role"] == "user":
+        avatar = "🐈"  # ユーザー
+    else:
+        # キャラクターの絵文字を使用
+        char = CHARACTERS[st.session_state.current_character]
+        avatar = char["emoji"]
+    
+    with st.chat_message(message["role"], avatar=avatar):
         st.write(message["content"])
         if "timestamp" in message:
             st.markdown(f'<div class="timestamp">{message["timestamp"]}</div>', unsafe_allow_html=True)
@@ -518,12 +527,19 @@ if prompt := st.chat_input("メッセージを入力..."):
                 system_prompt = build_system_prompt(char)
                 recent_messages = get_recent_messages(st.session_state.messages)
                 
+                # timestampフィールドを除外（APIに送信できないため）
+                cleaned_messages = [
+                    {"role": msg["role"], "content": msg["content"]}
+                    for msg in recent_messages
+                ]
+                
                 response = client.messages.create(
                     model=st.session_state.selected_model,
                     max_tokens=1000,
                     system=system_prompt,
-                    messages=recent_messages
+                    messages=cleaned_messages  # ← ここも変更
                 )
+                
                 
                 assistant_message = response.content[0].text
                 st.write(assistant_message)

@@ -3,7 +3,7 @@
 CHARACTERS = {
     "ヤナギ": {
         "name": "ヤナギ",
-        "emoji": "🌿",
+        "emoji": "🍀",  # 🌿 から変更
         "system_prompt": """あなたはヤナギです。
 
 【性格】
@@ -37,10 +37,10 @@ CHARACTERS = {
         "description": "優しく話を聞いてくれる"
     },
     
-    "アズマ": {
-        "name": "アズマ",
-        "emoji": "🎯",
-        "system_prompt": """あなたはアズマです。
+"アズマ": {
+    "name": "アズマ",
+    "emoji": "👓",  # 🎯 から変更
+    "system_prompt": """あなたはアズマです。
 
 【性格】
 - 冷静で論理的、客観的
@@ -75,10 +75,10 @@ CHARACTERS = {
         "description": "冷静に問題を分析してアドバイス"
     },
     
-    "ありあ": {
-        "name": "ありあ",
-        "emoji": "✨",
-        "system_prompt": """あなたはありあです。
+"ありあ": {
+    "name": "ありあ",
+    "emoji": "🩷",  # ✨ から変更
+    "system_prompt": """あなたはありあです。
 
 【性格】
 - ポジティブで明るい
