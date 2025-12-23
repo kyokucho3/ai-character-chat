@@ -9,9 +9,9 @@ from supabase_manager import SupabaseManager
 from profile_manager import ProfileManager
 import uuid
 
-def chat_message_styled(name):
+def chat_message_styled(name, avatar=None):
     """スタイル付きチャットメッセージ用のヘルパー関数"""
-    return st.container(key=f"{name}-{uuid.uuid4()}").chat_message(name=name)
+    return st.container(key=f"{name}-{uuid.uuid4()}").chat_message(name=name, avatar=avatar)
 
 # 環境変数の読み込み
 load_dotenv()
@@ -516,14 +516,20 @@ for message in st.session_state.messages:
         avatar = "🐈"
         role = "user"
     else:
-        char = CHARACTERS[st.session_state.current_character]
-        avatar = char["emoji"]
+        # キャラクターが選択されているか確認
+        if st.session_state.current_character:
+            char = CHARACTERS[st.session_state.current_character]
+            avatar = char["emoji"]
+        else:
+            avatar = "🤖"  # デフォルトアバター
         role = "assistant"
     
-    with chat_message_styled(name=role):
+    with chat_message_styled(name=role, avatar=avatar):
         st.write(message["content"])
         if "timestamp" in message:
             st.markdown(f'<div class="timestamp">{message["timestamp"]}</div>', unsafe_allow_html=True)
+    
+
 
 # ユーザー入力
 if prompt := st.chat_input("メッセージを入力..."):
@@ -537,58 +543,54 @@ if prompt := st.chat_input("メッセージを入力..."):
         "timestamp": timestamp
     })
     
-    with st.chat_message("user"):
-        st.write(prompt)
-    
-    # Claude APIを呼び出し
-    with st.chat_message("assistant"):
-        with st.spinner("考え中..."):
-            try:
-                char = CHARACTERS[st.session_state.current_character]
-                system_prompt = build_system_prompt(char)
-                recent_messages = get_recent_messages(st.session_state.messages)
-                
-                # timestampフィールドを除外（APIに送信できないため）
-                cleaned_messages = [
-                    {"role": msg["role"], "content": msg["content"]}
-                    for msg in recent_messages
-                ]
-                
-                response = client.messages.create(
-                    model=st.session_state.selected_model,
-                    max_tokens=1000,
-                    system=system_prompt,
-                    messages=cleaned_messages  # ← ここも変更
-                )
-                
-                
-                assistant_message = response.content[0].text
-                st.write(assistant_message)
-                
-                # アシスタントメッセージを追加
-                timestamp = datetime.now().strftime("%H:%M")
-                
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": assistant_message,
-                    "timestamp": timestamp
-                })
-                
-                # 会話を保存
-                db.save_conversations(
+    # API呼び出し（表示はしない、追加だけ）
+    with st.spinner("考え中..."):
+        try:
+            char = CHARACTERS[st.session_state.current_character]
+            system_prompt = build_system_prompt(char)
+            recent_messages = get_recent_messages(st.session_state.messages)
+            
+            # timestampフィールドを除外
+            cleaned_messages = [
+                {"role": msg["role"], "content": msg["content"]}
+                for msg in recent_messages
+            ]
+            
+            response = client.messages.create(
+                model=st.session_state.selected_model,
+                max_tokens=1000,
+                system=system_prompt,
+                messages=cleaned_messages
+            )
+            
+            assistant_message = response.content[0].text
+            timestamp = datetime.now().strftime("%H:%M")
+            
+            # アシスタントメッセージを追加
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": assistant_message,
+                "timestamp": timestamp
+            })
+            
+            # 会話を保存
+            db.save_conversations(
+                st.session_state.current_character,
+                st.session_state.messages
+            )
+            
+            # メッセージカウント更新
+            st.session_state.message_count = len(st.session_state.messages)
+            
+            # 5メッセージごとに自動情報抽出
+            if st.session_state.message_count % 5 == 0:
+                profile_manager.extract_info_from_conversation(
                     st.session_state.current_character,
                     st.session_state.messages
                 )
-                
-                # メッセージカウント更新
-                st.session_state.message_count = len(st.session_state.messages)
-                
-                # 5メッセージごとに自動情報抽出
-                if st.session_state.message_count % 5 == 0:
-                    profile_manager.extract_info_from_conversation(
-                        st.session_state.current_character,
-                        st.session_state.messages
-                    )
-                
-            except Exception as e:
-                st.error(f"エラーが発生しました: {str(e)}")
+            
+            # 再読み込みして履歴を表示
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"エラーが発生しました: {str(e)}")
