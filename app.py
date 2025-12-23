@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 from characters.characters import CHARACTERS
 from supabase_manager import SupabaseManager
 from profile_manager import ProfileManager
+import uuid
+
+def chat_message_styled(name):
+    """スタイル付きチャットメッセージ用のヘルパー関数"""
+    return st.container(key=f"{name}-{uuid.uuid4()}").chat_message(name=name)
 
 # 環境変数の読み込み
 load_dotenv()
@@ -473,53 +478,49 @@ if not st.session_state.current_character:
     st.stop()
 
 
-# カスタムCSS（吹き出しスタイル・ダークモード対応）
-st.markdown("""
+# カスタムCSS（ダークモード対応・色分け）
+st.html("""
 <style>
-    /* ユーザーメッセージ（右寄せ・青系） */
-    [data-testid="stChatMessageContent"][data-testid*="user"] {
-        background-color: rgba(59, 130, 246, 0.35) !important;
-        border-left: 2px solid rgba(59, 130, 246, 0.6);
-        padding: 0.75rem 1rem;
-        border-radius: 1rem;
-        margin-bottom: 0.5rem;
+    /* ユーザーメッセージ（青系） */
+    [class*="st-key-user"] {
+        background-color: rgba(59, 130, 246, 0.15) !important;
+        border-left: 3px solid rgba(59, 130, 246, 0.6);
+        border-radius: 12px;
+        padding: 8px;
+        margin-bottom: 12px;
     }
     
-    /* AIメッセージ（左寄せ・グレー系） */
-    [data-testid="stChatMessageContent"]:not([data-testid*="user"]) {
-        background-color: rgba(100, 100, 100, 0.35) !important;
-        border-left: 2px solid rgba(150, 150, 150, 0.4);
-        padding: 0.75rem 1rem;
-        border-radius: 1rem;
-        margin-bottom: 0.5rem;
+    /* AIメッセージ（グレー系） */
+    [class*="st-key-assistant"] {
+        background-color: rgba(100, 100, 100, 0.15) !important;
+        border-left: 3px solid rgba(150, 150, 150, 0.4);
+        border-radius: 12px;
+        padding: 8px;
+        margin-bottom: 12px;
     }
     
     /* タイムスタンプ */
     .timestamp {
         font-size: 0.7rem;
         color: rgba(150, 150, 150, 0.8);
-        margin-top: 0.25rem;
+        margin-top: 4px;
         font-style: italic;
     }
-    
-    /* メッセージ全体の間隔 */
-    [data-testid="stChatMessage"] {
-        margin-bottom: 1rem;
-    }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 # メッセージ表示
 for message in st.session_state.messages:
     # アバターを設定
     if message["role"] == "user":
-        avatar = "🐈"  # ユーザー
+        avatar = "🐈"
+        role = "user"
     else:
-        # キャラクターの絵文字を使用
         char = CHARACTERS[st.session_state.current_character]
         avatar = char["emoji"]
+        role = "assistant"
     
-    with st.chat_message(message["role"], avatar=avatar):
+    with chat_message_styled(name=role):
         st.write(message["content"])
         if "timestamp" in message:
             st.markdown(f'<div class="timestamp">{message["timestamp"]}</div>', unsafe_allow_html=True)
