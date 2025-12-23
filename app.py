@@ -472,23 +472,43 @@ if not st.session_state.current_character:
     st.info("👈 サイドバーからキャラクターを選んでください")
     st.stop()
 
-# カスタムCSS（吹き出しスタイル）
+
+# カスタムCSS（吹き出しスタイル・ダークモード対応）
 st.markdown("""
 <style>
-    .stChatMessage {
-        padding: 1rem;
+    /* ユーザーメッセージ（右寄せ・青系） */
+    [data-testid="stChatMessageContent"][data-testid*="user"] {
+        background-color: rgba(59, 130, 246, 0.35) !important;
+        border-left: 1px solid rgba(59, 130, 246, 0.6);
+        padding: 0.75rem 1rem;
         border-radius: 1rem;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
     }
+    
+    /* AIメッセージ（左寄せ・グレー系） */
+    [data-testid="stChatMessageContent"]:not([data-testid*="user"]) {
+        background-color: rgba(100, 100, 100, 0.35) !important;
+        border-left: 1px solid rgba(150, 150, 150, 0.4);
+        padding: 0.75rem 1rem;
+        border-radius: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* タイムスタンプ */
     .timestamp {
-        font-size: 0.75rem;
-        color: #888;
+        font-size: 0.7rem;
+        color: rgba(150, 150, 150, 0.8);
         margin-top: 0.25rem;
+        font-style: italic;
+    }
+    
+    /* メッセージ全体の間隔 */
+    [data-testid="stChatMessage"] {
+        margin-bottom: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# メッセージ表示
 # メッセージ表示
 for message in st.session_state.messages:
     # アバターを設定
