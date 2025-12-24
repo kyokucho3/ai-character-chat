@@ -530,6 +530,12 @@ st.html("""
         box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3) !important;
     }
     
+    /* フォーカス時の赤い枠を無効化 */
+    .stChatInput textarea:focus-visible,
+    .stChatInput input:focus-visible {
+        outline: none !important;
+    }
+    
     /* タイムスタンプ */
     .timestamp {
         font-size: 0.7rem;
