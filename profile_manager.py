@@ -80,10 +80,23 @@ class ProfileManager:
         return False
     
     def add_common_preference(self, item, preference_type="likes"):
-        """共通の好き・嫌いを追加"""
-        if item not in self.profile["common_profile"]["preferences"][preference_type]:
-            self.profile["common_profile"]["preferences"][preference_type].append(item)
-            self.db.save_profile(self.profile)
+        """共通の好き・嫌いを追加（重複チェック付き）"""
+        items = self.profile["common_profile"]["preferences"][preference_type]
+        
+        # 完全一致チェック
+        if item in items:
+            return False
+        
+        # 小文字で比較（大文字小文字の違いを無視）
+        item_lower = item.lower()
+        for existing_item in items:
+            if existing_item.lower() == item_lower:
+                return False
+        
+        # 重複なしなら追加
+        items.append(item)
+        self.db.save_profile(self.profile)
+        return True
     
     def delete_common_preference(self, item, preference_type="likes"):
         """共通の好き・嫌いを削除"""
@@ -114,7 +127,7 @@ class ProfileManager:
     # ==================== キャラクター別記憶 ====================
     
     def add_character_memory(self, character_name, memory_type, content):
-        """キャラクター別の記憶を追加
+        """キャラクター別の記憶を追加（重複チェック付き）
         
         Args:
             character_name: キャラクター名
@@ -128,14 +141,44 @@ class ProfileManager:
                 "notes": []
             }
         
-        if memory_type == "events":
-            # イベントにはタイムスタンプを付ける
-            timestamp = datetime.now().strftime("%Y/%m/%d")
-            content = f"{timestamp}: {content}"
+        memories = self.profile["character_memories"][character_name][memory_type]
         
-        if content not in self.profile["character_memories"][character_name][memory_type]:
-            self.profile["character_memories"][character_name][memory_type].append(content)
-            self.db.save_profile(self.profile)
+        # イベントにはタイムスタンプを付ける
+        if memory_type == "events":
+            timestamp = datetime.now().strftime("%Y/%m/%d")
+            content_with_timestamp = f"{timestamp}: {content}"
+        else:
+            content_with_timestamp = content
+        
+        # 完全一致チェック
+        if content_with_timestamp in memories:
+            return False
+        
+        # 類似チェック（小文字比較 + 部分一致）
+        content_lower = content.lower()
+        for existing_memory in memories:
+            # タイムスタンプを除外して比較（イベントの場合）
+            if memory_type == "events" and ": " in existing_memory:
+                existing_content = existing_memory.split(": ", 1)[1].lower()
+            else:
+                existing_content = existing_memory.lower()
+            
+            # 完全一致または80%以上の類似
+            if existing_content == content_lower:
+                return False
+            
+            # 短い方が長い方に含まれている場合も重複とみなす
+            if len(content_lower) < len(existing_content):
+                if content_lower in existing_content:
+                    return False
+            else:
+                if existing_content in content_lower:
+                    return False
+        
+        # 重複なしなら追加
+        memories.append(content_with_timestamp)
+        self.db.save_profile(self.profile)
+        return True
     
     def delete_character_memory(self, character_name, memory_type, index):
         """キャラクター別の記憶を削除

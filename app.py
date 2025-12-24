@@ -245,18 +245,22 @@ with st.sidebar:
                 item = st.text_input("好きなもの")
                 if st.form_submit_button("追加"):
                     if item:
-                        profile_manager.add_common_preference(item, "likes")
-                        st.success("追加しました！")
-                        st.rerun()
+                        if profile_manager.add_common_preference(item, "likes"):
+                            st.success("追加しました！")
+                            st.rerun()
+                        else:
+                            st.warning("すでに登録されています")
     
         else:  # 苦手なもの
             with st.form("add_dislike"):
                 item = st.text_input("苦手なもの")
                 if st.form_submit_button("追加"):
                     if item:
-                        profile_manager.add_common_preference(item, "dislikes")
-                        st.success("追加しました！")
-                        st.rerun()
+                        if profile_manager.add_common_preference(item, "dislikes"):
+                            st.success("追加しました！")
+                            st.rerun()
+                        else:
+                            st.warning("すでに登録されています")
         
         # 削除機能
         st.subheader("情報を削除")
@@ -414,13 +418,15 @@ with st.sidebar:
                 content = st.text_area("内容", key=f"add_memory_content_{char['name']}_{memory_type}")
                 if st.form_submit_button("追加"):
                     if content:
-                        profile_manager.add_character_memory(
+                        if profile_manager.add_character_memory(
                             char['name'],
                             memory_map[memory_type],
                             content
-                        )
-                        st.success("追加しました！")
-                        st.rerun()
+                        ):
+                            st.success("追加しました！")
+                            st.rerun()
+                        else:
+                            st.warning("類似の内容がすでに登録されています")
             
             # 削除機能
             st.subheader("記憶を削除")
@@ -478,25 +484,36 @@ if not st.session_state.current_character:
     st.stop()
 
 
-# カスタムCSS（ダークモード対応・色分け）
 st.html("""
 <style>
-    /* ユーザーメッセージ（青系） */
+    /* ユーザーメッセージ（右寄せ・青系） */
     [class*="st-key-user"] {
-        background-color: rgba(59, 130, 246, 0.15) !important;
-        border-left: 3px solid rgba(59, 130, 246, 0.6);
-        border-radius: 12px;
-        padding: 8px;
+        display: flex;
+        justify-content: flex-end;
         margin-bottom: 12px;
     }
     
-    /* AIメッセージ（グレー系） */
+    [class*="st-key-user"] > div {
+        background-color: rgba(59, 130, 246, 0.15) !important;
+        border-right: 3px solid rgba(59, 130, 246, 0.6);
+        border-radius: 12px;
+        padding: 8px;
+        max-width: 70%;
+    }
+    
+    /* AIメッセージ（左寄せ・グレー系） */
     [class*="st-key-assistant"] {
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 12px;
+    }
+    
+    [class*="st-key-assistant"] > div {
         background-color: rgba(100, 100, 100, 0.15) !important;
         border-left: 3px solid rgba(150, 150, 150, 0.4);
         border-radius: 12px;
         padding: 8px;
-        margin-bottom: 12px;
+        max-width: 70%;
     }
     
     /* タイムスタンプ */
