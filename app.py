@@ -8,10 +8,20 @@ from characters.characters import CHARACTERS
 from supabase_manager import SupabaseManager
 from profile_manager import ProfileManager
 import uuid
+from datetime import datetime, timezone, timedelta
 
 def chat_message_styled(name, avatar=None):
     """スタイル付きチャットメッセージ用のヘルパー関数"""
     return st.container(key=f"{name}-{uuid.uuid4()}").chat_message(name=name, avatar=avatar)
+
+
+# 日本時間用のタイムゾーン
+JST = timezone(timedelta(hours=9))
+
+def get_jst_time():
+    """日本時間の現在時刻を取得"""
+    return datetime.now(JST).strftime("%H:%M")
+
 
 # 環境変数の読み込み
 load_dotenv()
@@ -581,8 +591,7 @@ for message in st.session_state.messages:
 # ユーザー入力
 if prompt := st.chat_input("メッセージを入力..."):
     # ユーザーメッセージを追加
-    from datetime import datetime
-    timestamp = datetime.now().strftime("%H:%M")
+    timestamp = get_jst_time()
     
     st.session_state.messages.append({
         "role": "user",
@@ -611,7 +620,7 @@ if prompt := st.chat_input("メッセージを入力..."):
             )
             
             assistant_message = response.content[0].text
-            timestamp = datetime.now().strftime("%H:%M")
+            timestamp = get_jst_time()
             
             # アシスタントメッセージを追加
             st.session_state.messages.append({
