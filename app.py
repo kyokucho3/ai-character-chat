@@ -522,6 +522,13 @@ st.html("""
         padding: 8px;
         max-width: 70%;
     }
+
+    /* チャット入力欄のフォーカス時の色を変更 */
+    .stChatInput textarea:focus,
+    .stChatInput input:focus {
+        border-color: rgba(59, 130, 246, 0.6) !important;
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3) !important;
+    }
     
     /* タイムスタンプ */
     .timestamp {
