@@ -501,63 +501,62 @@ if not st.session_state.current_character:
     st.stop()
 
 
+
 st.html("""
 <style>
-    /* ユーザーメッセージ（右寄せ・青系） */
-    [class*="st-key-user"] {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 12px;
+    /* ユーザーメッセージ（青系） */
+    div[class*="st-key-user"] {
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin-bottom: 12px !important;
     }
     
-    [class*="st-key-user"] > div {
+    div[class*="st-key-user"] [data-testid="stChatMessageContent"] {
         background-color: rgba(59, 130, 246, 0.15) !important;
-        border-right: 3px solid rgba(59, 130, 246, 0.6);
-        border-radius: 12px;
-        padding: 8px;
-        max-width: 70%;
+        border-right: 3px solid rgba(59, 130, 246, 0.6) !important;
+        border-left: none !important;
+        border-radius: 12px !important;
+        padding: 8px !important;
+        max-width: 80% !important;
     }
     
-    /* AIメッセージ（左寄せ・グレー系） */
-    [class*="st-key-assistant"] {
-        display: flex;
-        justify-content: flex-start;
-        margin-bottom: 12px;
+    /* AIメッセージ（グレー系） */
+    div[class*="st-key-assistant"] {
+        display: flex !important;
+        justify-content: flex-start !important;
+        margin-bottom: 12px !important;
     }
     
-    [class*="st-key-assistant"] > div {
+    div[class*="st-key-assistant"] [data-testid="stChatMessageContent"] {
         background-color: rgba(100, 100, 100, 0.15) !important;
-        border-left: 3px solid rgba(150, 150, 150, 0.4);
-        border-radius: 12px;
-        padding: 8px;
-        max-width: 70%;
+        border-left: 3px solid rgba(150, 150, 150, 0.4) !important;
+        border-right: none !important;
+        border-radius: 12px !important;
+        padding: 8px !important;
+        max-width: 80% !important;
     }
-
-
-    /* チャット入力欄のフォーカス時の色を変更 */
-    .stChatInput textarea:focus,
-    .stChatInput input:focus {
-        border-color: rgba(59, 130, 246, 0.6) !important;
-        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3) !important;
-    }
-    
-    /* フォーカス時の赤い枠を無効化 */
-    .stChatInput textarea:focus-visible,
-    .stChatInput input:focus-visible {
-        outline: none !important;
-    }
-
     
     /* タイムスタンプ */
     .timestamp {
-        font-size: 0.7rem;
-        color: rgba(150, 150, 150, 0.8);
-        margin-top: 4px;
-        font-style: italic;
+        font-size: 0.7rem !important;
+        color: rgba(150, 150, 150, 0.8) !important;
+        margin-top: 4px !important;
+        font-style: italic !important;
+    }
+    
+    /* チャット入力欄のフォーカス時の色を変更 */
+    textarea[data-testid="stChatInputTextArea"]:focus {
+        border-color: rgba(59, 130, 246, 0.6) !important;
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3) !important;
+        outline: none !important;
+    }
+    
+    textarea[data-testid="stChatInputTextArea"]:focus-visible {
+        outline: none !important;
+        border-color: rgba(59, 130, 246, 0.6) !important;
     }
 </style>
 """)
-
 
 # 精査完了の通知
 if "optimization_done" in st.session_state and st.session_state.optimization_done:
