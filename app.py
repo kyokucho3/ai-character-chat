@@ -523,6 +523,7 @@ st.html("""
         max-width: 70%;
     }
 
+
     /* チャット入力欄のフォーカス時の色を変更 */
     .stChatInput textarea:focus,
     .stChatInput input:focus {
@@ -535,6 +536,7 @@ st.html("""
     .stChatInput input:focus-visible {
         outline: none !important;
     }
+
     
     /* タイムスタンプ */
     .timestamp {
