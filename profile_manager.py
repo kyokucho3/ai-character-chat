@@ -337,3 +337,98 @@ class ProfileManager:
                     
         except Exception as e:
             pass  # エラーは無視
+
+    def optimize_memories(self, character_name):
+        """記憶を精査・整理する
+        
+        Args:
+            character_name: キャラクター名
+        
+        Returns:
+            dict: 精査結果の統計
+        """
+        if character_name not in self.profile["character_memories"]:
+            return {"deleted": 0, "summarized": 0}
+        
+        memories = self.profile["character_memories"][character_name]
+        stats = {"deleted": 0, "summarized": 0}
+        
+        # 各タイプの記憶を精査
+        for memory_type in ["topics", "events", "notes"]:
+            items = memories[memory_type]
+            if len(items) <= 10:  # 10件以下なら精査不要
+                continue
+            
+            # 重複削除（既に実装済みだが念のため）
+            original_count = len(items)
+            unique_items = []
+            seen_lower = set()
+            
+            for item in items:
+                # イベントの場合はタイムスタンプを除外して比較
+                if memory_type == "events" and ": " in item:
+                    content = item.split(": ", 1)[1].lower()
+                else:
+                    content = item.lower()
+                
+                if content not in seen_lower:
+                    unique_items.append(item)
+                    seen_lower.add(content)
+            
+            deleted = original_count - len(unique_items)
+            stats["deleted"] += deleted
+            
+            # 50件を超える場合は古いものを要約
+            if len(unique_items) > 50:
+                # 古い30件を要約、新しい20件は残す
+                old_items = unique_items[:-20]
+                new_items = unique_items[-20:]
+                
+                # 要約を作成
+                summary = self._summarize_memories(character_name, memory_type, old_items)
+                
+                # 要約を追加（"summary:" プレフィックス）
+                memories[memory_type] = [f"[要約] {summary}"] + new_items
+                stats["summarized"] += len(old_items)
+            else:
+                memories[memory_type] = unique_items
+        
+        # 保存
+        self.db.save_profile(self.profile)
+        return stats
+
+    def _summarize_memories(self, character_name, memory_type, items):
+        """記憶を要約する（AI使用）
+        
+        Args:
+            character_name: キャラクター名
+            memory_type: 記憶のタイプ
+            items: 要約する項目リスト
+        
+        Returns:
+            str: 要約テキスト
+        """
+        type_names = {
+            "topics": "話題",
+            "events": "出来事",
+            "notes": "メモ"
+        }
+        
+        prompt = f"""以下は{character_name}との会話で記録された{type_names[memory_type]}です。
+    これらを簡潔に要約してください（3-5行程度）。
+
+    {chr(10).join(f"- {item}" for item in items)}
+
+    要約:"""
+        
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=300,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            
+            return response.content[0].text.strip()
+        except Exception as e:
+            # エラー時は簡易要約
+            return f"{len(items)}件の{type_names[memory_type]}（詳細は省略）"

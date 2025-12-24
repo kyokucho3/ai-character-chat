@@ -468,6 +468,13 @@ with st.sidebar:
                 if profile_manager.delete_all_character_memories(char['name']):
                     st.success("全ての記憶を削除しました")
                     st.rerun()
+            
+            # 記憶の整理（手動）
+            if st.button(f"🧹 {char['name']}の記憶を整理", use_container_width=True):
+                with st.spinner("整理中..."):
+                    stats = profile_manager.optimize_memories(char['name'])
+                    st.success(f"整理完了！（重複削除: {stats['deleted']}件、要約: {stats['summarized']}件）")
+                    st.rerun()
         
             st.divider()
         
@@ -525,6 +532,14 @@ st.html("""
     }
 </style>
 """)
+
+
+# 精査完了の通知
+if "optimization_done" in st.session_state and st.session_state.optimization_done:
+    stats = st.session_state.optimization_stats
+    st.success(f"🧹 記憶を整理しました（重複削除: {stats['deleted']}件、要約: {stats['summarized']}件）")
+    st.session_state.optimization_done = False
+
 
 # メッセージ表示
 for message in st.session_state.messages:
@@ -606,6 +621,13 @@ if prompt := st.chat_input("メッセージを入力..."):
                     st.session_state.messages
                 )
             
+            # 50メッセージごとに記憶を整理
+            if st.session_state.message_count % 50 == 0:
+                stats = profile_manager.optimize_memories(st.session_state.current_character)
+                if stats["deleted"] > 0 or stats["summarized"] > 0:
+                    # 次回の表示時に通知するためフラグを設定
+                    st.session_state.optimization_done = True
+                    st.session_state.optimization_stats = stats
             # 再読み込みして履歴を表示
             st.rerun()
             
