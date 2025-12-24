@@ -94,18 +94,23 @@ def check_authentication():
         
         password = st.text_input("パスワードを入力", type="password", key="login_password")
         
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("ログイン", use_container_width=True):
-                if password:
+        if st.button("ログイン", use_container_width=True):
+            if password:
+                # 環境変数から正しいパスワードを取得
+                correct_password = os.getenv("MY_PASSWORD")
+                
+                if not correct_password:
+                    st.error("⚠️ パスワードが設定されていません。管理者に連絡してください。")
+                elif password == correct_password:
+                    # パスワードが一致
                     st.session_state.user_id = hash_password(password)
                     st.session_state.authenticated = True
                     st.rerun()
                 else:
-                    st.error("パスワードを入力してください")
-        
-        with col2:
-            st.caption("💡 任意のパスワードを設定できます。初回入力時に自動で作成されます。")
+                    # パスワードが不一致
+                    st.error("❌ パスワードが間違っています")
+            else:
+                st.error("パスワードを入力してください")
         
         st.stop()
 
