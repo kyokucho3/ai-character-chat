@@ -3,6 +3,10 @@ import json
 from datetime import datetime
 from anthropic import Anthropic
 import os
+from datetime import datetime, timezone, timedelta
+
+# 日本時間用のタイムゾーン
+JST = timezone(timedelta(hours=9))
 
 class ProfileManager:
     def __init__(self, supabase_manager, anthropic_api_key):
@@ -143,16 +147,14 @@ class ProfileManager:
         
         memories = self.profile["character_memories"][character_name][memory_type]
         
-        # イベントにはタイムスタンプを付ける
+        # イベントにはタイムスタンプを付ける（日本時間）
         if memory_type == "events":
-            timestamp = datetime.now().strftime("%Y/%m/%d")
+            timestamp = datetime.now(JST).strftime("%Y/%m/%d")
             content_with_timestamp = f"{timestamp}: {content}"
-        else:
-            content_with_timestamp = content
-        
-        # 完全一致チェック
-        if content_with_timestamp in memories:
-            return False
+            
+            # 完全一致チェック
+            if content_with_timestamp in memories:
+                return False
         
         # 類似チェック（小文字比較 + 部分一致）
         content_lower = content.lower()

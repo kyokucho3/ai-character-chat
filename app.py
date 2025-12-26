@@ -174,11 +174,24 @@ def get_recent_messages(messages, limit=20):
 
 def build_system_prompt(character):
     """プロフィール情報を含むシステムプロンプトを構築"""
+    # 現在の日本時間を取得
+    now = datetime.now(JST)
+    current_time = now.strftime("%Y年%m月%d日 %H:%M")
+    day_of_week = ["月", "火", "水", "木", "金", "土", "日"][now.weekday()]
+    
     base_prompt = character["system_prompt"]
     context = profile_manager.get_full_context_for_character(character["name"])
     
+    # 時刻情報を追加
+    time_info = f"""
+現在の日時：{current_time}（{day_of_week}曜日）
+※会話の中で必要に応じて時間を参照してください。
+"""
+    
     if context:
         enhanced_prompt = f"""{base_prompt}
+
+{time_info}
 
 【ユーザーについての情報】
 以下は、これまでの会話で得た情報です。自然に会話の中で活用してください。
@@ -188,7 +201,7 @@ def build_system_prompt(character):
 注意：この情報を唐突に全部話したり、確認したりしないでください。会話の流れの中で自然に思い出したように使ってください。"""
         return enhanced_prompt
     
-    return base_prompt
+    return f"{base_prompt}\n\n{time_info}"
 
 # ==================== UI ====================
 
