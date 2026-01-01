@@ -151,6 +151,8 @@ class ProfileManager:
         if memory_type == "events":
             timestamp = datetime.now(JST).strftime("%Y/%m/%d")
             content_with_timestamp = f"{timestamp}: {content}"
+        else:
+            content_with_timestamp = content
             
             # 完全一致チェック
             if content_with_timestamp in memories:
