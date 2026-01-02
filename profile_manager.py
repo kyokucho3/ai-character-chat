@@ -1,6 +1,5 @@
 # profile_manager.py
 import json
-from datetime import datetime
 from anthropic import Anthropic
 import os
 from datetime import datetime, timezone, timedelta
@@ -154,9 +153,9 @@ class ProfileManager:
         else:
             content_with_timestamp = content
             
-            # 完全一致チェック
-            if content_with_timestamp in memories:
-                return False
+        # 完全一致チェック
+        if content_with_timestamp in memories:
+            return False
         
         # 類似チェック（小文字比較 + 部分一致）
         content_lower = content.lower()
