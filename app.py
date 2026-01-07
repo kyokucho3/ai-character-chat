@@ -183,16 +183,31 @@ def build_system_prompt(character):
     base_prompt = character["system_prompt"]
     context = profile_manager.get_full_context_for_character(character["name"])
     
-    # 時刻情報を追加
+# 時刻情報を追加
     time_info = f"""
 現在の日時：{current_time}（{day_of_week}曜日）
 ※会話の中で必要に応じて時間を参照してください。
 """
     
+    # ステラの場合だけホロスコープ情報を追加
+    horoscope_info = ""
+    if character["name"] == "ステラ":
+        horoscope_data = profile_manager.get_horoscope_data()
+        if horoscope_data:
+            horoscope_info = f"""
+
+【ホロスコープ情報】
+{horoscope_data}
+
+※この情報を元に、星座や惑星の配置、アスペクトから傾向を読み取ってください。
+※出生時刻とハウスの情報があるので、より詳細な読み取りが可能です。
+※あくまで参考として、楽しく会話に活用してください。
+"""
+    
     if context:
         enhanced_prompt = f"""{base_prompt}
 
-{time_info}
+{time_info}{horoscope_info}
 
 【ユーザーについての情報】
 以下は、これまでの会話で得た情報です。自然に会話の中で活用してください。
@@ -202,7 +217,7 @@ def build_system_prompt(character):
 注意：この情報を唐突に全部話したり、確認したりしないでください。会話の流れの中で自然に思い出したように使ってください。"""
         return enhanced_prompt
     
-    return f"{base_prompt}\n\n{time_info}"
+    return f"{base_prompt}\n\n{time_info}{horoscope_info}"
 
 # ==================== UI ====================
 
