@@ -191,7 +191,7 @@ def build_system_prompt(character):
     
     # ステラの場合だけホロスコープ情報を追加
     horoscope_info = ""
-    if character["name"] == "ステラ":
+    if character["name"] == "ステラ" and len(st.session_state.messages) == 0:
         horoscope_data = profile_manager.get_horoscope_data()
         if horoscope_data:
             horoscope_info = f"""
