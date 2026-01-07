@@ -423,6 +423,11 @@ with st.sidebar:
         
         # ==================== キャラクター別記憶管理 ====================
         with st.expander(f"💭 {char['name']}との記憶"):
+            if "optimization_done" in st.session_state and st.session_state.optimization_done:
+                stats = st.session_state.optimization_stats
+                st.success(f"🧹 整理完了！（重複削除: {stats['deleted']}件、要約: {stats['summarized']}件）")
+                st.session_state.optimization_done = False
+            
             st.caption("このキャラクターだけが知っている情報")
             
             char_summary = profile_manager.get_character_memory_summary(char['name'])
@@ -502,7 +507,9 @@ with st.sidebar:
             if st.button(f"🧹 {char['name']}の記憶を整理", use_container_width=True):
                 with st.spinner("整理中..."):
                     stats = profile_manager.optimize_memories(char['name'])
-                    st.success(f"整理完了！（重複削除: {stats['deleted']}件、要約: {stats['summarized']}件）")
+                    # セッション状態に結果を保存
+                    st.session_state.optimization_done = True
+                    st.session_state.optimization_stats = stats
                     st.rerun()
         
             st.divider()
