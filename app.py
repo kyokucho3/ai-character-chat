@@ -166,6 +166,8 @@ if "message_count" not in st.session_state:
     st.session_state.message_count = 0
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = "claude-sonnet-4-20250514"
+if "horoscope_sent_today" not in st.session_state:
+    st.session_state.horoscope_sent_today = None
 
 # ==================== 関数定義 ====================
 
@@ -189,12 +191,17 @@ def build_system_prompt(character):
 ※会話の中で必要に応じて時間を参照してください。
 """
     
-    # ステラの場合だけホロスコープ情報を追加
+    # ステラの場合、その日の最初の会話だけホロスコープ情報を追加
     horoscope_info = ""
-    if character["name"] == "ステラ" and len(st.session_state.messages) == 0:
-        horoscope_data = profile_manager.get_horoscope_data()
-        if horoscope_data:
-            horoscope_info = f"""
+    if character["name"] == "ステラ":
+        # 今日の日付を取得
+        today = datetime.now(JST).strftime("%Y-%m-%d")
+        
+        # 今日まだホロスコープ情報を渡していない場合
+        if st.session_state.horoscope_sent_today != today:
+            horoscope_data = profile_manager.get_horoscope_data()
+            if horoscope_data:
+                horoscope_info = f"""
 
 【ホロスコープ情報】
 {horoscope_data}
@@ -203,6 +210,8 @@ def build_system_prompt(character):
 ※出生時刻とハウスの情報があるので、より詳細な読み取りが可能です。
 ※あくまで参考として、楽しく会話に活用してください。
 """
+ # フラグを更新
+                st.session_state.horoscope_sent_today = today
     
     if context:
         enhanced_prompt = f"""{base_prompt}
