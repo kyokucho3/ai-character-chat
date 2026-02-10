@@ -182,36 +182,132 @@ st.title("💬 AI Character Chat")
 
 # サイドバー
 with st.sidebar:
-    # ログアウトボタン
+    # ログアウトボタン（タブの外、常に表示）
     if st.button("🚪 ログアウト", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state.clear()
         st.rerun()
     
     st.divider()
-# モデル選択
-    st.subheader("🎯 モデル設定")
     
-    model_options = {
-        "Haiku (高速・安価)": "claude-haiku-4-5-20251001",
-        "Sonnet (推奨)": "claude-sonnet-4-5-20250929",
-        "Opus (最高品質)": "claude-opus-4-1-20250805"
-    }
+    # タブを作成
+    tab1, tab2 = st.tabs(["💬 チャット", "👤 プロフィール"])
     
-    model_descriptions = {
-        "Haiku (高速・安価)": "💬 雑談や簡単な会話に最適\n入力: $0.25/M · 出力: $1.25/M",
-        "Sonnet (推奨)": "⭐ 通常の会話におすすめ\n入力: $3/M · 出力: $15/M",
-        "Opus (最高品質)": "🎓 複雑な相談や深い議論向け\n入力: $15/M · 出力: $75/M"
-    }
+    # ==================== タブ1: チャット設定 ====================
+# ==================== タブ1: チャット設定 ====================
+    with tab1:
+        # ToDoリスト（折りたたみ式）
+        with st.expander("✅ ToDoリスト", expanded=False):
+            st.caption("タクミと共有できるタスクリスト")
+            
+            # タスク追加
+            with st.form("add_todo_form", clear_on_submit=True):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    new_task = st.text_input("新しいタスク", label_visibility="collapsed", placeholder="タスクを入力...")
+                with col2:
+                    add_button = st.form_submit_button("追加", use_container_width=True)
+                
+                if add_button and new_task:
+                    profile_manager.add_todo(new_task)
+                    st.rerun()
+            
+            # タスク一覧
+            todos = profile_manager.get_todos()
+            
+            if todos:
+                # 未完了タスク
+                incomplete = [t for t in todos if not t["completed"]]
+                if incomplete:
+                    st.write("**未完了**")
+                    for todo in incomplete:
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            checkbox_key = f"todo_{todo['id']}_incomplete"
+                            if st.checkbox(todo["task"], key=checkbox_key, value=False):
+                                profile_manager.toggle_todo(todo["id"])
+                                st.rerun()
+                        with col2:
+                            if st.button("🗑️", key=f"del_{todo['id']}", use_container_width=True):
+                                profile_manager.delete_todo(todo["id"])
+                                st.rerun()
+                
+                # 完了タスク
+                completed = [t for t in todos if t["completed"]]
+                if completed:
+                    st.write("**完了済み**")
+                    for todo in completed:
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            checkbox_key = f"todo_{todo['id']}_completed"
+                            if st.checkbox(f"~~{todo['task']}~~", key=checkbox_key, value=True):
+                                pass
+                            if checkbox_key in st.session_state and not st.session_state[checkbox_key]:
+                                profile_manager.toggle_todo(todo["id"])
+                                st.rerun()
+                        with col2:
+                            if st.button("🗑️", key=f"del_{todo['id']}", use_container_width=True):
+                                profile_manager.delete_todo(todo["id"])
+                                st.rerun()
+            else:
+                st.caption("タスクがありません")
+        
+        st.divider()
+        
+        # モデル設定
+        st.subheader("🎯 モデル設定")
+        
+        model_options = {
+            "Haiku (高速・安価)": "claude-haiku-4-5-20251001",
+            "Sonnet (推奨)": "claude-sonnet-4-5-20250929",
+            "Opus (最高品質)": "claude-opus-4-1-20250805"
+        }
+        
+        model_descriptions = {
+            "Haiku (高速・安価)": "💬 雑談や簡単な会話に最適\n入力: $0.25/M · 出力: $1.25/M",
+            "Sonnet (推奨)": "⭐ 通常の会話におすすめ\n入力: $3/M · 出力: $15/M",
+            "Opus (最高品質)": "🎓 複雑な相談や深い議論向け\n入力: $15/M · 出力: $75/M"
+        }
+        
+        selected_model_name = st.radio(
+            "モデルを選択",
+            list(model_options.keys()),
+            index=0,
+            help="会話の内容に応じてモデルを選択してください"
+        )
+        
+        st.session_state.selected_model = model_options[selected_model_name]
+        st.caption(model_descriptions[selected_model_name])
+        
+        st.divider()
+        
+        # キャラクター選択
+        st.subheader("キャラクター選択")
+        
+        for char_name, char_info in CHARACTERS.items():
+            if st.button(
+                f"{char_info['emoji']} {char_name}",
+                key=f"select_{char_name}",
+                use_container_width=True
+            ):
+                if st.session_state.current_character != char_name:
+                    st.session_state.current_character = char_name
+                    st.session_state.messages = db.load_conversations(char_name)
+                    st.session_state.message_count = len(st.session_state.messages)
+                    st.rerun()
+        
+        # キャラクター情報表示
+        if st.session_state.current_character:
+            char = CHARACTERS[st.session_state.current_character]
+            st.divider()
+            st.subheader(f"{char['emoji']} {char['name']}")
+            st.caption(char['description'])
+            st.metric("会話数", len(st.session_state.messages))
     
-    selected_model_name = st.radio(
-        "モデルを選択",
-        list(model_options.keys()),
-        index=0,  # Haikuをデフォルト
-        help="会話の内容に応じてモデルを選択してください"
-    )
-# 共通プロフィール（常に表示）
-    with st.expander("🐈 共通プロフィール"):
+    # ==================== タブ2: プロフィール管理 ====================
+    with tab2:
+        # 共通プロフィール
+        st.subheader("🐈 共通プロフィール")
         st.caption("全キャラクターが知っている情報")
         
         try:
@@ -219,185 +315,111 @@ with st.sidebar:
             st.text(common_summary)
         except Exception as e:
             st.error(f"エラー: {str(e)}")
-            st.text("（プロフィール読み込みエラー）")
+            st.text("(プロフィール読み込みエラー)")
         
         # 手動追加
-        st.subheader("情報を追加")
-        
-        info_type = st.selectbox(
-            "種類",
-            ["基本情報", "好きなもの", "苦手なもの"],
-            key="add_info_type"
-        )
-        
-        
-        if info_type == "基本情報":
-            with st.form("add_basic_info"):
-                key = st.text_input("項目名（例：名前、職業）")
-                value = st.text_input("内容")
-                if st.form_submit_button("追加"):
-                    if key and value:
-                        profile_manager.update_common_info(key, value)
-                        st.success("追加しました！")
-                        st.rerun()
-        
-        elif info_type == "好きなもの":
-            with st.form("add_like"):
-                item = st.text_input("好きなもの")
-                if st.form_submit_button("追加"):
-                    if item:
-                        if profile_manager.add_common_preference(item, "likes"):
-                            st.success("追加しました！")
+        with st.expander("情報を追加"):
+            info_type = st.selectbox(
+                "種類",
+                ["基本情報", "好きなもの", "苦手なもの"],
+                key="add_info_type"
+            )
+            
+            if info_type == "基本情報":
+                with st.form("add_basic_info"):
+                    key = st.text_input("項目名(例:名前、職業)")
+                    value = st.text_input("内容")
+                    if st.form_submit_button("追加"):
+                        if key and value:
+                            profile_manager.update_common_info(key, value)
+                            st.success("追加しました!")
                             st.rerun()
-                        else:
-                            st.warning("すでに登録されています")
-    
-        else:  # 苦手なもの
-            with st.form("add_dislike"):
-                item = st.text_input("苦手なもの")
-                if st.form_submit_button("追加"):
-                    if item:
-                        if profile_manager.add_common_preference(item, "dislikes"):
-                            st.success("追加しました！")
-                            st.rerun()
-                        else:
-                            st.warning("すでに登録されています")
+            
+            elif info_type == "好きなもの":
+                with st.form("add_like"):
+                    item = st.text_input("好きなもの")
+                    if st.form_submit_button("追加"):
+                        if item:
+                            if profile_manager.add_common_preference(item, "likes"):
+                                st.success("追加しました!")
+                                st.rerun()
+                            else:
+                                st.warning("すでに登録されています")
+            
+            else:
+                with st.form("add_dislike"):
+                    item = st.text_input("苦手なもの")
+                    if st.form_submit_button("追加"):
+                        if item:
+                            if profile_manager.add_common_preference(item, "dislikes"):
+                                st.success("追加しました!")
+                                st.rerun()
+                            else:
+                                st.warning("すでに登録されています")
         
         # 削除機能
-        st.subheader("情報を削除")
-        
-        delete_type = st.selectbox(
-            "削除する種類",
-            ["基本情報", "好きなもの", "苦手なもの"],
-            key="delete_common_type"
-        )
-        
-        profile = profile_manager.profile["common_profile"]
-        
-        if delete_type == "基本情報":
-            if profile["basic_info"]:
-                with st.form("delete_basic_info"):
-                    item_to_delete = st.selectbox(
-                        "削除する項目",
-                        list(profile["basic_info"].keys())
-                    )
-                    if st.form_submit_button("削除", type="secondary"):
-                        profile_manager.delete_common_info(item_to_delete)
-                        st.success("削除しました！")
-                        st.rerun()
-            else:
-                st.caption("削除する項目がありません")
-        
-        elif delete_type == "好きなもの":
-            if profile["preferences"]["likes"]:
-                with st.form("delete_like"):
-                    item_to_delete = st.selectbox(
-                        "削除する項目",
-                        profile["preferences"]["likes"]
-                    )
-                    if st.form_submit_button("削除", type="secondary"):
-                        profile_manager.delete_common_preference(item_to_delete, "likes")
-                        st.success("削除しました！")
-                        st.rerun()
-            else:
-                st.caption("削除する項目がありません")
-        
-        else:  # 苦手なもの
-            if profile["preferences"]["dislikes"]:
-                with st.form("delete_dislike"):
-                    item_to_delete = st.selectbox(
-                        "削除する項目",
-                        profile["preferences"]["dislikes"]
-                    )
-                    if st.form_submit_button("削除", type="secondary"):
-                        profile_manager.delete_common_preference(item_to_delete, "dislikes")
-                        st.success("削除しました！")
-                        st.rerun()
-            else:
-                st.caption("削除する項目がありません")
+        with st.expander("情報を削除"):
+            delete_type = st.selectbox(
+                "削除する種類",
+                ["基本情報", "好きなもの", "苦手なもの"],
+                key="delete_common_type"
+            )
             
             profile = profile_manager.profile["common_profile"]
             
             if delete_type == "基本情報":
                 if profile["basic_info"]:
-                    item_to_delete = st.selectbox(
-                        "削除する項目",
-                        list(profile["basic_info"].keys())
-                    )
-                    if st.form_submit_button("削除", type="secondary"):
-                        profile_manager.delete_common_info(item_to_delete)
-                        st.success("削除しました！")
-                        st.rerun()
+                    with st.form("delete_basic_info"):
+                        item_to_delete = st.selectbox(
+                            "削除する項目",
+                            list(profile["basic_info"].keys())
+                        )
+                        if st.form_submit_button("削除", type="secondary"):
+                            profile_manager.delete_common_info(item_to_delete)
+                            st.success("削除しました!")
+                            st.rerun()
                 else:
                     st.caption("削除する項目がありません")
-                    st.form_submit_button("削除", disabled=True)
             
             elif delete_type == "好きなもの":
                 if profile["preferences"]["likes"]:
-                    item_to_delete = st.selectbox(
-                        "削除する項目",
-                        profile["preferences"]["likes"]
-                    )
-                    if st.form_submit_button("削除", type="secondary"):
-                        profile_manager.delete_common_preference(item_to_delete, "likes")
-                        st.success("削除しました！")
-                        st.rerun()
+                    with st.form("delete_like"):
+                        item_to_delete = st.selectbox(
+                            "削除する項目",
+                            profile["preferences"]["likes"]
+                        )
+                        if st.form_submit_button("削除", type="secondary"):
+                            profile_manager.delete_common_preference(item_to_delete, "likes")
+                            st.success("削除しました!")
+                            st.rerun()
                 else:
                     st.caption("削除する項目がありません")
-                    st.form_submit_button("削除", disabled=True)
             
-            else:  # 苦手なもの
+            else:
                 if profile["preferences"]["dislikes"]:
-                    item_to_delete = st.selectbox(
-                        "削除する項目",
-                        profile["preferences"]["dislikes"]
-                    )
-                    if st.form_submit_button("削除", type="secondary"):
-                        profile_manager.delete_common_preference(item_to_delete, "dislikes")
-                        st.success("削除しました！")
-                        st.rerun()
+                    with st.form("delete_dislike"):
+                        item_to_delete = st.selectbox(
+                            "削除する項目",
+                            profile["preferences"]["dislikes"]
+                        )
+                        if st.form_submit_button("削除", type="secondary"):
+                            profile_manager.delete_common_preference(item_to_delete, "dislikes")
+                            st.success("削除しました!")
+                            st.rerun()
                 else:
                     st.caption("削除する項目がありません")
-                    st.form_submit_button("削除", disabled=True)
-    
-    st.divider()
-    st.session_state.selected_model = model_options[selected_model_name]
-    st.caption(model_descriptions[selected_model_name])
-    
-
-    st.divider()
-    st.header("キャラクター選択")
-    
-    # キャラクター選択ボタン
-    for char_i, (char_name, char_info) in enumerate(CHARACTERS.items()):
-        if st.button(
-            f"{char_info['emoji']} {char_name}",
-            key=f"select_{char_name}",
-            use_container_width=True
-        ):
-            if st.session_state.current_character != char_name:
-                st.session_state.current_character = char_name
-                st.session_state.messages = db.load_conversations(char_name)
-                st.session_state.message_count = len(st.session_state.messages)
-                st.rerun()
-    
-    # キャラクター情報表示
-    if st.session_state.current_character:
-        char = CHARACTERS[st.session_state.current_character]
-        st.divider()
-        st.subheader(f"{char['emoji']} {char['name']}")
-        st.caption(char['description'])
-        
-        # 統計情報
-        st.metric("会話数", len(st.session_state.messages))
         
         st.divider()
         
-        # ==================== キャラクター別記憶管理 ====================
-        with st.expander(f"💭 {char['name']}との記憶"):
+        # キャラクター別記憶
+        if st.session_state.current_character:
+            char = CHARACTERS[st.session_state.current_character]
+            
+            st.subheader(f"💭 {char['name']}との記憶")
+            
             if "optimization_done" in st.session_state and st.session_state.optimization_done:
                 stats = st.session_state.optimization_stats
-                st.success(f"🧹 整理完了！（重複削除: {stats['deleted']}件、要約: {stats['summarized']}件）")
+                st.success(f"🧹 整理完了!(重複削除: {stats['deleted']}件、要約: {stats['summarized']}件)")
                 st.session_state.optimization_done = False
             
             st.caption("このキャラクターだけが知っている情報")
@@ -406,87 +428,85 @@ with st.sidebar:
             st.text(char_summary)
             
             # 手動追加
-            st.subheader("記憶を追加")
-            
-            memory_type = st.selectbox(
-                "種類",
-                ["トピック", "出来事", "メモ"],
-                key=f"add_memory_type_{char['name']}"
-            )
-            
-            memory_map = {
-                "トピック": "topics",
-                "出来事": "events",
-                "メモ": "notes"
-            }
-            
-            with st.form(f"add_character_memory_{char['name']}_{memory_type}"):
-                content = st.text_area("内容", key=f"add_memory_content_{char['name']}_{memory_type}")
-                if st.form_submit_button("追加"):
-                    if content:
-                        if profile_manager.add_character_memory(
-                            char['name'],
-                            memory_map[memory_type],
-                            content
-                        ):
-                            st.success("追加しました！")
-                            st.rerun()
-                        else:
-                            st.warning("類似の内容がすでに登録されています")
+            with st.expander("記憶を追加"):
+                memory_type = st.selectbox(
+                    "種類",
+                    ["トピック", "出来事", "メモ"],
+                    key=f"add_memory_type_{char['name']}"
+                )
+                
+                memory_map = {
+                    "トピック": "topics",
+                    "出来事": "events",
+                    "メモ": "notes"
+                }
+                
+                with st.form(f"add_character_memory_{char['name']}_{memory_type}"):
+                    content = st.text_area("内容", key=f"add_memory_content_{char['name']}_{memory_type}")
+                    if st.form_submit_button("追加"):
+                        if content:
+                            if profile_manager.add_character_memory(
+                                char['name'],
+                                memory_map[memory_type],
+                                content
+                            ):
+                                st.success("追加しました!")
+                                st.rerun()
+                            else:
+                                st.warning("類似の内容がすでに登録されています")
             
             # 削除機能
-            st.subheader("記憶を削除")
-            
-            delete_memory_type = st.selectbox(
-                "削除する種類",
-                ["トピック", "出来事", "メモ"],
-                key=f"delete_char_type_{char['name']}"
-            )
-            
-            memory_type_key = memory_map[delete_memory_type]
-            
-            if char['name'] in profile_manager.profile["character_memories"]:
-                memories = profile_manager.profile["character_memories"][char['name']][memory_type_key]
+            with st.expander("記憶を削除"):
+                delete_memory_type = st.selectbox(
+                    "削除する種類",
+                    ["トピック", "出来事", "メモ"],
+                    key=f"delete_char_type_{char['name']}"
+                )
                 
-                if memories:
-                    with st.form(f"delete_character_memory_{char['name']}_{delete_memory_type}"):
-                        # インデックスと内容を表示
-                        options = [f"{i}: {mem[:50]}..." if len(mem) > 50 else f"{i}: {mem}" 
-                                for i, mem in enumerate(memories)]
-                        selected = st.selectbox("削除する項目", options)
-                        
-                        if st.form_submit_button("削除", type="secondary"):
-                            index = int(selected.split(":")[0])
-                            profile_manager.delete_character_memory(
-                                char['name'],
-                                memory_type_key,
-                                index
-                            )
-                            st.success("削除しました！")
-                            st.rerun()
+                memory_type_key = memory_map[delete_memory_type]
+                
+                if char['name'] in profile_manager.profile["character_memories"]:
+                    memories = profile_manager.profile["character_memories"][char['name']][memory_type_key]
+                    
+                    if memories:
+                        with st.form(f"delete_character_memory_{char['name']}_{delete_memory_type}"):
+                            options = [f"{i}: {mem[:50]}..." if len(mem) > 50 else f"{i}: {mem}" 
+                                    for i, mem in enumerate(memories)]
+                            selected = st.selectbox("削除する項目", options)
+                            
+                            if st.form_submit_button("削除", type="secondary"):
+                                index = int(selected.split(":")[0])
+                                profile_manager.delete_character_memory(
+                                    char['name'],
+                                    memory_type_key,
+                                    index
+                                )
+                                st.success("削除しました!")
+                                st.rerun()
+                    else:
+                        st.caption("削除する項目がありません")
                 else:
-                    st.caption("削除する項目がありません")
-            else:
-                st.caption("まだ記憶がありません")
+                    st.caption("まだ記憶がありません")
             
-            # 全削除
-            if st.button(f"🗑️ {char['name']}の記憶を全削除", type="secondary", use_container_width=True):
-                if profile_manager.delete_all_character_memories(char['name']):
-                    st.success("全ての記憶を削除しました")
-                    st.rerun()
+            # 全削除と整理ボタン
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(f"🗑️ 全削除", type="secondary", use_container_width=True):
+                    if profile_manager.delete_all_character_memories(char['name']):
+                        st.success("全ての記憶を削除しました")
+                        st.rerun()
             
-            # 記憶の整理（手動）
-            if st.button(f"🧹 {char['name']}の記憶を整理", use_container_width=True):
-                with st.spinner("整理中..."):
-                    stats = profile_manager.optimize_memories(char['name'])
-                    # セッション状態に結果を保存
-                    st.session_state.optimization_done = True
-                    st.session_state.optimization_stats = stats
-                    st.rerun()
-        
+            with col2:
+                if st.button(f"🧹 整理", use_container_width=True):
+                    with st.spinner("整理中..."):
+                        stats = profile_manager.optimize_memories(char['name'])
+                        st.session_state.optimization_done = True
+                        st.session_state.optimization_stats = stats
+                        st.rerun()
+            
             st.divider()
-        
-        # 会話リセットボタン
+            
+            # 会話リセットボタン
             if st.button("🔄 会話をリセット", use_container_width=True):
                 db.delete_conversations(st.session_state.current_character)
                 st.session_state.messages = []
@@ -514,44 +534,8 @@ with st.expander("✅ ToDoリスト", expanded=False):
         if add_button and new_task:
             profile_manager.add_todo(new_task)
             st.rerun()
-    
-    # タスク一覧
-    todos = profile_manager.get_todos()
-    
-    if todos:
-        # 未完了タスク
-        incomplete = [t for t in todos if not t["completed"]]
-        if incomplete:
-            st.write("**未完了**")
-            for todo in incomplete:
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    if st.checkbox(todo["task"], key=f"todo_{todo['id']}", value=False):
-                        profile_manager.toggle_todo(todo["id"])
-                        st.rerun()
-                with col2:
-                    if st.button("🗑️", key=f"del_{todo['id']}", use_container_width=True):
-                        profile_manager.delete_todo(todo["id"])
-                        st.rerun()
-        
-        # 完了タスク
-        completed = [t for t in todos if t["completed"]]
-        if completed:
-            st.write("**完了済み**")
-            for todo in completed:
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    if st.checkbox(f"~~{todo['task']}~~", key=f"todo_{todo['id']}", value=True):
-                        profile_manager.toggle_todo(todo["id"])
-                        st.rerun()
-                with col2:
-                    if st.button("🗑️", key=f"del_{todo['id']}", use_container_width=True):
-                        profile_manager.delete_todo(todo["id"])
-                        st.rerun()
-    else:
-        st.caption("タスクがありません")
 
-st.divider()
+
 
 
 

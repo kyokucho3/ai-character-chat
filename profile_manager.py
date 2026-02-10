@@ -438,6 +438,7 @@ class ProfileManager:
         except Exception as e:
             # エラー時は簡易要約
             return f"{len(items)}件の{type_names[memory_type]}（詳細は省略）"
+
     # ==================== ToDoリスト管理 ====================
 
     def get_todos(self):
