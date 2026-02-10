@@ -44,8 +44,11 @@ class ProfileManager:
                     }
                 },
                 "character_memories": {},
+                "todos": [],
                 "last_updated": self.profile.get("last_updated")
+
             }
+
             
             # 保存
             self.db.save_profile(self.profile)
@@ -435,3 +438,72 @@ class ProfileManager:
         except Exception as e:
             # エラー時は簡易要約
             return f"{len(items)}件の{type_names[memory_type]}（詳細は省略）"
+    # ==================== ToDoリスト管理 ====================
+
+    def get_todos(self):
+        """ToDoリストを取得"""
+        if "todos" not in self.profile:
+            self.profile["todos"] = []
+        return self.profile["todos"]
+
+    def add_todo(self, task):
+        """ToDoを追加"""
+        import uuid
+        from datetime import datetime
+        
+        if "todos" not in self.profile:
+            self.profile["todos"] = []
+        
+        todo = {
+            "id": str(uuid.uuid4()),
+            "task": task,
+            "completed": False,
+            "created_at": datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+        }
+        
+        self.profile["todos"].append(todo)
+        self.db.save_profile(self.profile)
+        return True
+
+    def toggle_todo(self, todo_id):
+        """ToDoの完了状態を切り替え"""
+        if "todos" not in self.profile:
+            return False
+        
+        for todo in self.profile["todos"]:
+            if todo["id"] == todo_id:
+                todo["completed"] = not todo["completed"]
+                self.db.save_profile(self.profile)
+                return True
+        return False
+
+    def delete_todo(self, todo_id):
+        """ToDoを削除"""
+        if "todos" not in self.profile:
+            return False
+        
+        self.profile["todos"] = [t for t in self.profile["todos"] if t["id"] != todo_id]
+        self.db.save_profile(self.profile)
+        return True
+
+    def get_todo_summary(self):
+        """ToDoの要約を取得（タクミ用）"""
+        todos = self.get_todos()
+        if not todos:
+            return None
+        
+        incomplete = [t for t in todos if not t["completed"]]
+        completed = [t for t in todos if t["completed"]]
+        
+        summary = []
+        if incomplete:
+            summary.append("【未完了のタスク】")
+            for todo in incomplete:
+                summary.append(f"- {todo['task']}")
+        
+        if completed:
+            summary.append("\n【完了済み】")
+            for todo in completed:
+                summary.append(f"- {todo['task']}")
+        
+        return "\n".join(summary)

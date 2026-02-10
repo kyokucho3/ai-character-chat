@@ -34,49 +34,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# PWA用のメタタグを追加
-st.markdown("""
-<head>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#ff4b4b">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AI Chat">
-    <link rel="apple-touch-icon" href="/app/static/icon-192.png">
-</head>
-""", unsafe_allow_html=True)
 
-# PWA設定を追加
-def add_pwa_support():
-    """PWAサポートを追加"""
-    pwa_script = """
-    <head>
-        <link rel="manifest" href="/manifest.json">
-        <meta name="theme-color" content="#FF4B4B">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="apple-mobile-web-app-title" content="AI Chat">
-        <link rel="apple-touch-icon" href="/icon-192.png">
-        <script>
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/service-worker.js')
-                        .then(function(registration) {
-                            console.log('ServiceWorker registration successful');
-                        })
-                        .catch(function(err) {
-                            console.log('ServiceWorker registration failed: ', err);
-                        });
-                });
-            }
-        </script>
-    </head>
-    """
-    st.markdown(pwa_script, unsafe_allow_html=True)
-
-# PWAサポートを追加
-add_pwa_support()
 
 # ==================== 認証機能 ====================
 
@@ -190,6 +148,33 @@ def build_system_prompt(character):
 現在の日時：{current_time}（{day_of_week}曜日）
 ※会話の中で必要に応じて時間を参照してください。
 """
+    todo_info = ""
+    if character["name"] == "タクミ":
+        todo_summary = profile_manager.get_todo_summary()
+        if todo_summary:
+            todo_info = f"""
+
+    【ToDoリスト】
+    {todo_summary}
+
+    ※これらのタスクについて質問されたら、優先順位や進め方をアドバイスしてください。
+    ※無理はさせず、小さく始めることを提案してください。
+    """
+        
+        if context:
+            enhanced_prompt = f"""{base_prompt}
+
+    {time_info}{todo_info}
+
+【ユーザーについての情報】
+以下は、これまでの会話で得た情報です。自然に会話の中で活用してください。
+
+{context}
+
+注意：この情報を唐突に全部話したり、確認したりしないでください。会話の流れの中で自然に思い出したように使ってください。"""
+        return enhanced_prompt
+    
+    return f"{base_prompt}\n\n{time_info}"
 
 # ==================== UI ====================
 
@@ -512,6 +497,61 @@ with st.sidebar:
 if not st.session_state.current_character:
     st.info("👈 サイドバーからキャラクターを選んでください")
     st.stop()
+
+
+# ==================== ToDoリスト ====================
+with st.expander("✅ ToDoリスト", expanded=False):
+    st.caption("タクミと共有できるタスクリスト")
+    
+    # タスク追加
+    with st.form("add_todo_form", clear_on_submit=True):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            new_task = st.text_input("新しいタスク", label_visibility="collapsed", placeholder="タスクを入力...")
+        with col2:
+            add_button = st.form_submit_button("追加", use_container_width=True)
+        
+        if add_button and new_task:
+            profile_manager.add_todo(new_task)
+            st.rerun()
+    
+    # タスク一覧
+    todos = profile_manager.get_todos()
+    
+    if todos:
+        # 未完了タスク
+        incomplete = [t for t in todos if not t["completed"]]
+        if incomplete:
+            st.write("**未完了**")
+            for todo in incomplete:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    if st.checkbox(todo["task"], key=f"todo_{todo['id']}", value=False):
+                        profile_manager.toggle_todo(todo["id"])
+                        st.rerun()
+                with col2:
+                    if st.button("🗑️", key=f"del_{todo['id']}", use_container_width=True):
+                        profile_manager.delete_todo(todo["id"])
+                        st.rerun()
+        
+        # 完了タスク
+        completed = [t for t in todos if t["completed"]]
+        if completed:
+            st.write("**完了済み**")
+            for todo in completed:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    if st.checkbox(f"~~{todo['task']}~~", key=f"todo_{todo['id']}", value=True):
+                        profile_manager.toggle_todo(todo["id"])
+                        st.rerun()
+                with col2:
+                    if st.button("🗑️", key=f"del_{todo['id']}", use_container_width=True):
+                        profile_manager.delete_todo(todo["id"])
+                        st.rerun()
+    else:
+        st.caption("タスクがありません")
+
+st.divider()
 
 
 
