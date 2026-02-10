@@ -519,21 +519,7 @@ if not st.session_state.current_character:
     st.stop()
 
 
-# ==================== ToDoリスト ====================
-with st.expander("✅ ToDoリスト", expanded=False):
-    st.caption("タクミと共有できるタスクリスト")
-    
-    # タスク追加
-    with st.form("add_todo_form", clear_on_submit=True):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            new_task = st.text_input("新しいタスク", label_visibility="collapsed", placeholder="タスクを入力...")
-        with col2:
-            add_button = st.form_submit_button("追加", use_container_width=True)
-        
-        if add_button and new_task:
-            profile_manager.add_todo(new_task)
-            st.rerun()
+
 
 
 
