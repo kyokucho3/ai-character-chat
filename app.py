@@ -190,43 +190,6 @@ def build_system_prompt(character):
 現在の日時：{current_time}（{day_of_week}曜日）
 ※会話の中で必要に応じて時間を参照してください。
 """
-    
-    # ステラの場合、その日の最初の会話だけホロスコープ情報を追加
-    horoscope_info = ""
-    if character["name"] == "ステラ":
-        # 今日の日付を取得
-        today = datetime.now(JST).strftime("%Y-%m-%d")
-        
-        # 今日まだホロスコープ情報を渡していない場合
-        if st.session_state.horoscope_sent_today != today:
-            horoscope_data = profile_manager.get_horoscope_data()
-            if horoscope_data:
-                horoscope_info = f"""
-
-【ホロスコープ情報】
-{horoscope_data}
-
-※この情報を元に、星座や惑星の配置、アスペクトから傾向を読み取ってください。
-※出生時刻とハウスの情報があるので、より詳細な読み取りが可能です。
-※あくまで参考として、楽しく会話に活用してください。
-"""
- # フラグを更新
-                st.session_state.horoscope_sent_today = today
-    
-    if context:
-        enhanced_prompt = f"""{base_prompt}
-
-{time_info}{horoscope_info}
-
-【ユーザーについての情報】
-以下は、これまでの会話で得た情報です。自然に会話の中で活用してください。
-
-{context}
-
-注意：この情報を唐突に全部話したり、確認したりしないでください。会話の流れの中で自然に思い出したように使ってください。"""
-        return enhanced_prompt
-    
-    return f"{base_prompt}\n\n{time_info}{horoscope_info}"
 
 # ==================== UI ====================
 
@@ -259,7 +222,7 @@ with st.sidebar:
     selected_model_name = st.radio(
         "モデルを選択",
         list(model_options.keys()),
-        index=1,  # Sonnetをデフォルト
+        index=0,  # Haikuをデフォルト
         help="会話の内容に応じてモデルを選択してください"
     )
 # 共通プロフィール（常に表示）
