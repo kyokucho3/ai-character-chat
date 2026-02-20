@@ -143,33 +143,49 @@ def build_system_prompt(character):
     base_prompt = character["system_prompt"]
     context = profile_manager.get_full_context_for_character(character["name"])
     
-# 時刻情報を追加
+    # 時刻情報を追加
     time_info = f"""
 現在の日時：{current_time}（{day_of_week}曜日）
 ※会話の中で必要に応じて時間を参照してください。
 """
+    
+    # タクミ用のToDo情報
     todo_info = ""
     if character["name"] == "タクミ":
         todo_summary = profile_manager.get_todo_summary()
         if todo_summary:
             todo_info = f"""
 
-    【ToDoリスト】
-    {todo_summary}
+【ToDoリスト】
+{todo_summary}
 
-    ※これらのタスクについて質問されたら、優先順位や進め方をアドバイスしてください。
-    ※無理はさせず、小さく始めることを提案してください。
-    """
-        
-        if context:
-            enhanced_prompt = f"""{base_prompt}
+※これらのタスクについて質問されたら、優先順位や進め方をアドバイスしてください。
+※無理はさせず、小さく始めることを提案してください。
+"""
+    
+    # ヤナギ用のデイリーログ情報
+    log_info = ""
+    if character["name"] == "ヤナギ":
+        weekly_summary = profile_manager.get_weekly_summary()
+        if weekly_summary:
+            log_info = f"""
 
-    {time_info}{todo_info}
+【今週のログ】
+{weekly_summary}
+
+※「今週の振り返り」「週次サマリー」などを求められたら、このログを元に話してください。
+※自然な会話の中で、今日の出来事や健康面を聞き出してください。
+"""
+    
+    if context or todo_info or log_info:
+        enhanced_prompt = f"""{base_prompt}
+
+{time_info}{todo_info}{log_info}
 
 【ユーザーについての情報】
 以下は、これまでの会話で得た情報です。自然に会話の中で活用してください。
 
-{context}
+{context if context else "（まだ情報がありません）"}
 
 注意：この情報を唐突に全部話したり、確認したりしないでください。会話の流れの中で自然に思い出したように使ってください。"""
         return enhanced_prompt
@@ -259,8 +275,8 @@ with st.sidebar:
         
         model_options = {
             "Haiku (高速・安価)": "claude-haiku-4-5-20251001",
-            "Sonnet (推奨)": "claude-sonnet-4-5-20250929",
-            "Opus (最高品質)": "claude-opus-4-1-20250805"
+            "Sonnet (推奨)": "claude-sonnet-4-6",
+            "Opus (最高品質)": "claude-opus-4-6"
         }
         
         model_descriptions = {
@@ -512,6 +528,62 @@ with st.sidebar:
                 st.session_state.messages = []
                 st.session_state.message_count = 0
                 st.rerun()
+            st.divider()
+            
+    # バックアップ機能
+    st.subheader("💾 データバックアップ")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # エクスポート
+        if st.button("📥 エクスポート", use_container_width=True):
+            import json
+            backup_data = profile_manager.export_all_data()
+            backup_json = json.dumps(backup_data, ensure_ascii=False, indent=2)
+            
+            # ダウンロードボタン用にセッションステートに保存
+            st.session_state.backup_data = backup_json
+            st.success("エクスポート準備完了！")
+
+    with col2:
+        # インポート
+        uploaded_file = st.file_uploader(
+            "📤 インポート",
+            type=['json'],
+            key="import_backup",
+            label_visibility="collapsed"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                import json
+                backup_data = json.load(uploaded_file)
+                
+                if profile_manager.import_data(backup_data):
+                    st.success("データを復元しました！")
+                    st.rerun()
+                else:
+                    st.error("データ形式が正しくありません")
+            except Exception as e:
+                st.error(f"復元エラー: {str(e)}")
+
+    # ダウンロードボタン（エクスポート後に表示）
+    if "backup_data" in st.session_state:
+        timestamp = datetime.now(JST).strftime("%Y%m%d_%H%M%S")
+        filename = f"ai_chat_backup_{timestamp}.json"
+        
+        st.download_button(
+            label="⬇️ ダウンロード",
+            data=st.session_state.backup_data,
+            file_name=filename,
+            mime="application/json",
+            use_container_width=True
+        )
+        
+        if st.button("✓ 完了", use_container_width=True):
+            del st.session_state.backup_data
+            st.rerun()
 
 # メイン画面
 if not st.session_state.current_character:
@@ -667,15 +739,17 @@ if prompt := st.chat_input("メッセージを入力..."):
                     st.session_state.messages
                 )
             
+            # ヤナギとの会話の場合、デイリーログを抽出（夜19時以降）
+            if st.session_state.current_character == "ヤナギ":
+                current_hour = datetime.now(JST).hour
+                if current_hour >= 19:  # 19時以降
+                    # 最後の会話からログを抽出
+                    if len(st.session_state.messages) >= 4:
+                        profile_manager.extract_log_from_conversation(st.session_state.messages)
+            
             # 50メッセージごとに記憶を整理
             if st.session_state.message_count % 50 == 0:
                 stats = profile_manager.optimize_memories(st.session_state.current_character)
-                if stats["deleted"] > 0 or stats["summarized"] > 0:
-                    # 次回の表示時に通知するためフラグを設定
-                    st.session_state.optimization_done = True
-                    st.session_state.optimization_stats = stats
-            # 再読み込みして履歴を表示
-            st.rerun()
             
         except Exception as e:
             st.error(f"エラーが発生しました: {str(e)}")

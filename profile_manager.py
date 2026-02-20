@@ -25,58 +25,65 @@ class ProfileManager:
     
     def _migrate_to_new_structure(self):
         """旧データ構造から新データ構造への移行"""
-        # すでに新しい構造なら何もしない
+        
+        # daily_logsが無いだけなら追加して終了
         if "common_profile" in self.profile and "character_memories" in self.profile:
+            if "daily_logs" not in self.profile:
+                self.profile["daily_logs"] = []
+                self.db.save_profile(self.profile)
+                print("daily_logsを追加しました")
             return
         
-        # 旧データ構造の場合は移行
-        try:
-            old_basic_info = self.profile.get("basic_info", {})
-            old_preferences = self.profile.get("preferences", {"likes": [], "dislikes": []})
-            
-            # 新しい構造を作成
-            self.profile = {
-                "common_profile": {
-                    "basic_info": old_basic_info if isinstance(old_basic_info, dict) else {},
-                    "preferences": {
-                        "likes": old_preferences.get("likes", []) if isinstance(old_preferences, dict) else [],
-                        "dislikes": old_preferences.get("dislikes", []) if isinstance(old_preferences, dict) else []
-                    }
-                },
-                "character_memories": {},
-                "todos": [],
-                "last_updated": self.profile.get("last_updated")
-
-            }
-
-            
-            # 保存
-            self.db.save_profile(self.profile)
-            print("データ構造を新しい形式に移行しました")
-            
-        except Exception as e:
-            # エラーが起きたら完全に新規作成
-            print(f"移行エラー、新規作成します: {e}")
-            self.profile = {
-                "common_profile": {
-                    "basic_info": {},
-                    "preferences": {
-                        "likes": [],
-                        "dislikes": []
-                    }
-                },
-                "character_memories": {},
-                "last_updated": None
-            }
-            self.db.save_profile(self.profile)
+        # 完全に旧構造の場合のみ移行
+        if "common_profile" not in self.profile or "character_memories" not in self.profile:
+            try:
+                old_basic_info = self.profile.get("basic_info", {})
+                old_preferences = self.profile.get("preferences", {"likes": [], "dislikes": []})
+                
+                # 新しい構造を作成
+                self.profile = {
+                    "common_profile": {
+                        "basic_info": old_basic_info if isinstance(old_basic_info, dict) else {},
+                        "preferences": {
+                            "likes": old_preferences.get("likes", []) if isinstance(old_preferences, dict) else [],
+                            "dislikes": old_preferences.get("dislikes", []) if isinstance(old_preferences, dict) else []
+                        }
+                    },
+                    "character_memories": self.profile.get("character_memories", {}),
+                    "todos": self.profile.get("todos", []),
+                    "daily_logs": [],
+                    "last_updated": self.profile.get("last_updated")
+                }
+                
+                # 保存
+                self.db.save_profile(self.profile)
+                print("データ構造を新しい形式に移行しました")
+                
+            except Exception as e:
+                # エラーが起きたら完全に新規作成
+                print(f"移行エラー、新規作成します: {e}")
+                self.profile = {
+                    "common_profile": {
+                        "basic_info": {},
+                        "preferences": {
+                            "likes": [],
+                            "dislikes": []
+                        }
+                    },
+                    "character_memories": {},
+                    "todos": [],
+                    "daily_logs": [],
+                    "last_updated": None
+                }
+                self.db.save_profile(self.profile)
     
     # ==================== 共通プロフィール ====================
-    
+
     def update_common_info(self, key, value):
         """共通の基本情報を更新"""
         self.profile["common_profile"]["basic_info"][key] = value
         self.db.save_profile(self.profile)
-    
+
     def delete_common_info(self, key):
         """共通の基本情報を削除"""
         if key in self.profile["common_profile"]["basic_info"]:
@@ -84,7 +91,7 @@ class ProfileManager:
             self.db.save_profile(self.profile)
             return True
         return False
-    
+
     def add_common_preference(self, item, preference_type="likes"):
         """共通の好き・嫌いを追加（重複チェック付き）"""
         items = self.profile["common_profile"]["preferences"][preference_type]
@@ -103,7 +110,7 @@ class ProfileManager:
         items.append(item)
         self.db.save_profile(self.profile)
         return True
-    
+
     def delete_common_preference(self, item, preference_type="likes"):
         """共通の好き・嫌いを削除"""
         if item in self.profile["common_profile"]["preferences"][preference_type]:
@@ -111,7 +118,7 @@ class ProfileManager:
             self.db.save_profile(self.profile)
             return True
         return False
-    
+
     def get_common_profile_summary(self):
         """共通プロフィールの要約を取得"""
         common = self.profile["common_profile"]
@@ -129,9 +136,9 @@ class ProfileManager:
             summary.append(f"\n【苦手なもの】\n- " + "、".join(common["preferences"]["dislikes"]))
         
         return "\n".join(summary) if summary else "（まだ情報がありません）"
-    
+        
     # ==================== キャラクター別記憶 ====================
-    
+
     def add_character_memory(self, character_name, memory_type, content):
         """キャラクター別の記憶を追加（重複チェック付き）
         
@@ -185,7 +192,7 @@ class ProfileManager:
         memories.append(content_with_timestamp)
         self.db.save_profile(self.profile)
         return True
-    
+        
     def delete_character_memory(self, character_name, memory_type, index):
         """キャラクター別の記憶を削除
         
@@ -201,7 +208,7 @@ class ProfileManager:
                 self.db.save_profile(self.profile)
                 return True
         return False
-    
+
     def delete_all_character_memories(self, character_name):
         """特定キャラクターの記憶を全削除"""
         if character_name in self.profile["character_memories"]:
@@ -209,7 +216,7 @@ class ProfileManager:
             self.db.save_profile(self.profile)
             return True
         return False
-    
+
     def get_character_memory_summary(self, character_name):
         """キャラクター別記憶の要約を取得"""
         if character_name not in self.profile["character_memories"]:
@@ -234,9 +241,9 @@ class ProfileManager:
                 summary.append(f"- {note}")
         
         return "\n".join(summary) if summary else "（まだ記憶がありません）"
-    
+        
     # ==================== システムプロンプト用 ====================
-    
+
     def get_full_context_for_character(self, character_name):
         """特定キャラクター用の完全なコンテキストを取得"""
         context = []
@@ -254,9 +261,9 @@ class ProfileManager:
             context.append(char_summary)
         
         return "\n".join(context) if context else None
-    
+        
     # ==================== 自動抽出 ====================
-    
+
     def extract_info_from_conversation(self, character_name, messages):
         """会話から情報を自動抽出（共通 + キャラクター別）"""
         if len(messages) < 4:
@@ -269,30 +276,30 @@ class ProfileManager:
         
         extraction_prompt = f"""以下の会話から、ユーザーに関する重要な情報を抽出してください。
 
-会話:
-{conversation_text}
+    会話:
+    {conversation_text}
 
-以下のカテゴリに該当する情報があれば、JSON形式で返してください。該当するものがない場合は空のオブジェクトを返してください。
+    以下のカテゴリに該当する情報があれば、JSON形式で返してください。該当するものがない場合は空のオブジェクトを返してください。
 
-{{
-  "common": {{
+    {{
+    "common": {{
     "basic_info": {{"キー": "値"}},
     "likes": ["好きなもの1"],
     "dislikes": ["苦手なもの1"]
-  }},
-  "character_specific": {{
+    }},
+    "character_specific": {{
     "topics": ["このキャラクターと話したトピック"],
     "events": ["このキャラクターとの重要な出来事"],
     "notes": ["このキャラクターとの関係性についてのメモ"]
-  }}
-}}
+    }}
+    }}
 
-注意：
-- common: 全キャラクターが知っておくべき基本情報（名前、趣味など）
-- character_specific: このキャラクターだけが知っている内容
-- 明確に言及されている情報のみ抽出
-- 推測や憶測は含めない
-- JSONのみを返し、他の説明は不要"""
+    注意：
+    - common: 全キャラクターが知っておくべき基本情報（名前、趣味など）
+    - character_specific: このキャラクターだけが知っている内容
+    - 明確に言及されている情報のみ抽出
+    - 推測や憶測は含めない
+    - JSONのみを返し、他の説明は不要"""
 
         try:
             response = self.client.messages.create(
@@ -508,3 +515,194 @@ class ProfileManager:
                 summary.append(f"- {todo['task']}")
         
         return "\n".join(summary)
+
+    # ==================== デイリーログ管理 ====================
+
+    def add_daily_log(self, summary, health_notes=None, events=None):
+        """デイリーログを追加
+        
+        Args:
+            summary: その日の簡潔なまとめ
+            health_notes: 健康面のメモ（睡眠、体調など）
+            events: 主な出来事リスト
+        """
+        if "daily_logs" not in self.profile:
+            self.profile["daily_logs"] = []
+        
+        today = datetime.now(JST).strftime("%Y-%m-%d")
+        
+        # 今日のログが既に存在するか確認
+        existing_log = None
+        for log in self.profile["daily_logs"]:
+            if log["date"] == today:
+                existing_log = log
+                break
+        
+        if existing_log:
+            # 既存のログを更新
+            existing_log["summary"] = summary
+            if health_notes:
+                existing_log["health_notes"] = health_notes
+            if events:
+                existing_log["events"] = events
+            existing_log["updated_at"] = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+        else:
+            # 新規ログを追加
+            log = {
+                "date": today,
+                "summary": summary,
+                "health_notes": health_notes or "",
+                "events": events or [],
+                "created_at": datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+            }
+            self.profile["daily_logs"].append(log)
+        
+        self.db.save_profile(self.profile)
+        return True
+
+    def get_recent_logs(self, days=7):
+        """最近N日分のログを取得"""
+        if "daily_logs" not in self.profile:
+            return []
+        
+        # 日付でソート（新しい順）
+        sorted_logs = sorted(
+            self.profile["daily_logs"],
+            key=lambda x: x["date"],
+            reverse=True
+        )
+        
+        return sorted_logs[:days]
+
+    def get_weekly_summary(self):
+        """今週のログをまとめて取得"""
+        logs = self.get_recent_logs(7)
+        
+        if not logs:
+            return None
+        
+        summary = []
+        summary.append("【今週のログ】\n")
+        
+        for log in reversed(logs):  # 古い順に表示
+            date_obj = datetime.strptime(log["date"], "%Y-%m-%d")
+            weekday = ["月", "火", "水", "木", "金", "土", "日"][date_obj.weekday()]
+            
+            summary.append(f"■ {log['date']}（{weekday}）")
+            summary.append(f"  {log['summary']}")
+            
+            if log.get("health_notes"):
+                summary.append(f"  健康: {log['health_notes']}")
+            
+            if log.get("events"):
+                summary.append(f"  出来事: {', '.join(log['events'])}")
+            
+            summary.append("")
+        
+        return "\n".join(summary)
+
+    def extract_log_from_conversation(self, messages):
+        """会話からデイリーログを自動抽出
+        
+        Args:
+            messages: 最近の会話履歴
+        """
+        if len(messages) < 2:
+            return None
+        
+        # 最近の会話を取得（最大10メッセージ）
+        recent_messages = messages[-10:]
+        conversation_text = "\n".join([
+            f"{msg['role']}: {msg['content']}" for msg in recent_messages
+        ])
+        
+        extraction_prompt = f"""以下の会話から、今日のデイリーログを作成してください。
+
+    会話:
+    {conversation_text}
+
+    以下の形式のJSONで返してください:
+    {{
+    "summary": "今日の出来事を1-2文で簡潔に",
+    "health_notes": "睡眠、体調、気分など（なければ空文字）",
+    "events": ["主な出来事1", "主な出来事2"]（なければ空配列）
+    }}
+
+    注意：
+    - 会話に具体的な内容がない場合は null を返す
+    - 推測や憶測は含めない
+    - JSONのみを返し、他の説明は不要"""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=300,
+                messages=[{"role": "user", "content": extraction_prompt}]
+            )
+            
+            result_text = response.content[0].text.strip()
+            
+            # nullチェック
+            if result_text.lower() == "null":
+                return None
+            
+            if "```json" in result_text:
+                result_text = result_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in result_text:
+                result_text = result_text.split("```")[1].split("```")[0].strip()
+            
+            extracted = json.loads(result_text)
+            
+            if extracted and extracted.get("summary"):
+                self.add_daily_log(
+                    summary=extracted["summary"],
+                    health_notes=extracted.get("health_notes"),
+                    events=extracted.get("events")
+                )
+                return True
+            
+            return None
+            
+        except Exception as e:
+            print(f"ログ抽出エラー: {e}")
+            return None
+
+# ==================== バックアップ・リストア ====================
+
+    def export_all_data(self):
+        """全データをエクスポート用辞書として取得"""
+        return {
+            "profile": self.profile,
+            "export_date": datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S"),
+            "version": "1.0"
+        }
+    
+    def import_data(self, data):
+        """データをインポートして復元
+        
+        Args:
+            data: export_all_dataで取得した辞書
+        
+        Returns:
+            bool: 成功したかどうか
+        """
+        try:
+            if "profile" not in data:
+                return False
+            
+            # データを復元
+            self.profile = data["profile"]
+            
+            # 必須フィールドの確認と追加
+            if "daily_logs" not in self.profile:
+                self.profile["daily_logs"] = []
+            if "todos" not in self.profile:
+                self.profile["todos"] = []
+            
+            # 保存
+            self.db.save_profile(self.profile)
+            return True
+            
+        except Exception as e:
+            print(f"インポートエラー: {e}")
+            return False
