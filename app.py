@@ -166,14 +166,21 @@ def build_system_prompt(character):
     # ヤナギ用のデイリーログ情報
     log_info = ""
     if character["name"] == "ヤナギ":
-        weekly_summary = profile_manager.get_weekly_summary()
-        if weekly_summary:
+        # ログが実際に存在する場合のみ取得
+        recent_logs = profile_manager.get_recent_logs(3)  # 最新3日分だけ
+        if recent_logs:
+            log_summary = []
+            for log in reversed(recent_logs):
+                date_obj = datetime.strptime(log["date"], "%Y-%m-%d")
+                weekday = ["月", "火", "水", "木", "金", "土", "日"][date_obj.weekday()]
+                log_summary.append(f"{log['date']}({weekday}): {log['summary']}")
+            
             log_info = f"""
 
-【今週のログ】
-{weekly_summary}
+【最近のログ】
+{chr(10).join(log_summary)}
 
-※「今週の振り返り」「週次サマリー」などを求められたら、このログを元に話してください。
+※「今週の振り返り」を求められたら、詳しく週次サマリーを話してください。
 ※自然な会話の中で、今日の出来事や健康面を聞き出してください。
 """
     
@@ -585,15 +592,12 @@ with st.sidebar:
             del st.session_state.backup_data
             st.rerun()
 
+
+
 # メイン画面
 if not st.session_state.current_character:
     st.info("👈 サイドバーからキャラクターを選んでください")
     st.stop()
-
-
-
-
-
 
 
 
@@ -693,7 +697,7 @@ if prompt := st.chat_input("メッセージを入力..."):
         "timestamp": timestamp
     })
     
-    # API呼び出し（表示はしない、追加だけ）
+    # API呼び出し
     with st.spinner("考え中..."):
         try:
             char = CHARACTERS[st.session_state.current_character]
@@ -745,11 +749,17 @@ if prompt := st.chat_input("メッセージを入力..."):
                 if current_hour >= 19:  # 19時以降
                     # 最後の会話からログを抽出
                     if len(st.session_state.messages) >= 4:
-                        profile_manager.extract_log_from_conversation(st.session_state.messages)
+                        try:
+                            profile_manager.extract_log_from_conversation(st.session_state.messages)
+                        except Exception as e:
+                            print(f"ログ抽出エラー: {e}")
             
             # 50メッセージごとに記憶を整理
             if st.session_state.message_count % 50 == 0:
                 stats = profile_manager.optimize_memories(st.session_state.current_character)
+            
+            # 最後にリロード
+            st.rerun()
             
         except Exception as e:
             st.error(f"エラーが発生しました: {str(e)}")
