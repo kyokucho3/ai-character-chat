@@ -661,7 +661,7 @@ if "optimization_done" in st.session_state and st.session_state.optimization_don
 
 
 # メッセージ表示
-for message in st.session_state.messages:
+for message in get_recent_messages(st.session_state.messages):
     # アバターを設定
     if message["role"] == "user":
         avatar = "🐈"
