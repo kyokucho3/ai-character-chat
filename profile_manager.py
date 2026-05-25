@@ -7,6 +7,8 @@ from datetime import datetime, timezone, timedelta
 # 日本時間用のタイムゾーン
 JST = timezone(timedelta(hours=9))
 
+WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
+
 class ProfileManager:
     def __init__(self, supabase_manager, anthropic_api_key):
         """
@@ -427,10 +429,11 @@ class ProfileManager:
             "notes": "メモ"
         }
         
+        items_text = "\n".join(f"- {item}" for item in items)
         prompt = f"""以下は{character_name}との会話で記録された{type_names[memory_type]}です。
     これらを簡潔に要約してください（3-5行程度）。
 
-    {chr(10).join(f"- {item}" for item in items)}
+    {items_text}
 
     要約:"""
         
@@ -586,7 +589,7 @@ class ProfileManager:
         
         for log in reversed(logs):  # 古い順に表示
             date_obj = datetime.strptime(log["date"], "%Y-%m-%d")
-            weekday = ["月", "火", "水", "木", "金", "土", "日"][date_obj.weekday()]
+            weekday = WEEKDAYS[date_obj.weekday()]
             
             summary.append(f"■ {log['date']}（{weekday}）")
             summary.append(f"  {log['summary']}")
@@ -600,6 +603,18 @@ class ProfileManager:
             summary.append("")
         
         return "\n".join(summary)
+
+    def get_recent_logs_summary(self, days=3):
+        """最近N日分のログを1行形式の文字列で返す（システムプロンプト用）"""
+        logs = self.get_recent_logs(days)
+        if not logs:
+            return None
+        lines = []
+        for log in reversed(logs):  # 古い順（昇順）に表示
+            date_obj = datetime.strptime(log["date"], "%Y-%m-%d")
+            weekday = WEEKDAYS[date_obj.weekday()]
+            lines.append(f"{log['date']}({weekday}): {log['summary']}")
+        return "\n".join(lines)
 
     def extract_log_from_conversation(self, messages):
         """会話からデイリーログを自動抽出

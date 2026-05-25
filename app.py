@@ -19,6 +19,8 @@ def chat_message_styled(name, avatar=None):
 # 日本時間用のタイムゾーン
 JST = timezone(timedelta(hours=9))
 
+WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
+
 def get_jst_time():
     """日本時間の現在時刻を取得"""
     return datetime.now(JST).strftime("%H:%M")
@@ -126,6 +128,8 @@ if "selected_model" not in st.session_state:
     st.session_state.selected_model = "claude-sonnet-4-20250514"
 if "horoscope_sent_today" not in st.session_state:
     st.session_state.horoscope_sent_today = None
+if "last_log_extract_count" not in st.session_state:
+    st.session_state.last_log_extract_count = 0
 
 # ==================== 関数定義 ====================
 
@@ -138,7 +142,7 @@ def build_system_prompt(character):
     # 現在の日本時間を取得
     now = datetime.now(JST)
     current_time = now.strftime("%Y年%m月%d日 %H:%M")
-    day_of_week = ["月", "火", "水", "木", "金", "土", "日"][now.weekday()]
+    day_of_week = WEEKDAYS[now.weekday()]
     
     base_prompt = character["system_prompt"]
     context = profile_manager.get_full_context_for_character(character["name"])
@@ -166,19 +170,12 @@ def build_system_prompt(character):
     # ヤナギ用のデイリーログ情報
     log_info = ""
     if character["name"] == "ヤナギ":
-        # ログが実際に存在する場合のみ取得
-        recent_logs = profile_manager.get_recent_logs(3)  # 最新3日分だけ
-        if recent_logs:
-            log_summary = []
-            for log in reversed(recent_logs):
-                date_obj = datetime.strptime(log["date"], "%Y-%m-%d")
-                weekday = ["月", "火", "水", "木", "金", "土", "日"][date_obj.weekday()]
-                log_summary.append(f"{log['date']}({weekday}): {log['summary']}")
-            
+        log_text = profile_manager.get_recent_logs_summary(3)
+        if log_text:
             log_info = f"""
 
 【最近のログ】
-{chr(10).join(log_summary)}
+{log_text}
 
 ※「今週の振り返り」を求められたら、詳しく週次サマリーを話してください。
 ※自然な会話の中で、今日の出来事や健康面を聞き出してください。
@@ -742,22 +739,18 @@ if prompt := st.chat_input("メッセージを入力..."):
                     st.session_state.messages
                 )
             
-            # ヤナギとの会話の場合、デイリーログを抽出（夜19時以降）
+            # ヤナギとの会話の場合、デイリーログを抽出（夜19時以降、5メッセージごと）
             if st.session_state.current_character == "ヤナギ":
                 current_hour = datetime.now(JST).hour
-                if current_hour >= 19:  # 19時以降
-                    # 最後の会話からログを抽出
-                    if len(st.session_state.messages) >= 4:
-                        try:
-                            profile_manager.extract_log_from_conversation(st.session_state.messages)
-                        except Exception as e:
-                            print(f"ログ抽出エラー: {e}")
-            
+                msg_since_last = st.session_state.message_count - st.session_state.last_log_extract_count
+                if current_hour >= 19 and len(st.session_state.messages) >= 4 and msg_since_last >= 5:
+                    profile_manager.extract_log_from_conversation(st.session_state.messages)
+                    st.session_state.last_log_extract_count = st.session_state.message_count
+
             # 50メッセージごとに記憶を整理
             if st.session_state.message_count % 50 == 0:
-                stats = profile_manager.optimize_memories(st.session_state.current_character)
-            
-            # 最後にリロード
+                profile_manager.optimize_memories(st.session_state.current_character)
+
             st.rerun()
             
         except Exception as e:
